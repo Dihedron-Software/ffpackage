@@ -1,0 +1,74 @@
+// FFmpeg 8.0 Odin bindings generator config.
+// Run: bindgen.exe bindgen-config
+//
+// After generation, fix up the foreign import placeholder in each .odin file
+// to point to the correct library (avutil.lib, avcodec.lib, etc.).
+// The generate_bindings.ps1 script does this automatically.
+
+inputs = [
+    // --- libavutil ---
+    "../ffmpeg-install/include/libavutil/avutil.h",
+    "../ffmpeg-install/include/libavutil/buffer.h",
+    "../ffmpeg-install/include/libavutil/channel_layout.h",
+    "../ffmpeg-install/include/libavutil/dict.h",
+    "../ffmpeg-install/include/libavutil/frame.h",
+    "../ffmpeg-install/include/libavutil/hwcontext.h",
+    "../ffmpeg-install/include/libavutil/imgutils.h",
+    "../ffmpeg-install/include/libavutil/log.h",
+    "../ffmpeg-install/include/libavutil/mathematics.h",
+    "../ffmpeg-install/include/libavutil/pixdesc.h",
+    "../ffmpeg-install/include/libavutil/pixfmt.h",
+    "../ffmpeg-install/include/libavutil/rational.h",
+    "../ffmpeg-install/include/libavutil/samplefmt.h",
+
+    // --- libavcodec ---
+    "../ffmpeg-install/include/libavcodec/avcodec.h",
+    "../ffmpeg-install/include/libavcodec/codec.h",
+    "../ffmpeg-install/include/libavcodec/codec_desc.h",
+    "../ffmpeg-install/include/libavcodec/codec_id.h",
+    "../ffmpeg-install/include/libavcodec/codec_par.h",
+    "../ffmpeg-install/include/libavcodec/defs.h",
+    "../ffmpeg-install/include/libavcodec/packet.h",
+
+    // --- libavformat ---
+    "../ffmpeg-install/include/libavformat/avformat.h",
+    "../ffmpeg-install/include/libavformat/avio.h",
+
+    // --- libavdevice ---
+    "../ffmpeg-install/include/libavdevice/avdevice.h",
+
+    // --- libswresample ---
+    "../ffmpeg-install/include/libswresample/swresample.h",
+
+    // --- libswscale ---
+    "../ffmpeg-install/include/libswscale/swscale.h"
+]
+
+// NOTE: clang_include_paths resolves relative to CWD (not config dir),
+// so no "../" prefix here unlike inputs.
+clang_include_paths = [
+    "ffmpeg-install/include"
+]
+
+output_folder = "../output"
+import_lib = "__PLACEHOLDER__.lib"
+package_name = "ffmpeg"
+
+// Functions that use C's FILE type, (could convert to Odin's c bindings later)
+remove = [
+    "av_hex_dump",
+    "av_pkt_dump2"
+]
+
+// C double pointers (Foo**) that are actually arrays need [^]
+struct_field_overrides = {
+    "AVFormatContext.streams"       = "[^]"
+    "AVFormatContext.stream_groups" = "[^]"
+    "AVFormatContext.chapters"      = "[^]"
+    "AVFormatContext.programs"      = "[^]"
+    "AVFrame.extended_data"         = "^[^]u8"
+}
+procedure_type_overrides = {
+    "swr_convert.out" = "^[^]u8"
+    "swr_convert.in"  = "^[^]u8"
+}

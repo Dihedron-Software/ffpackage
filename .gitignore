@@ -1,0 +1,4 @@
+ffmpeg-install/
+output/
+odin-c-bindgen/bindgen.exe
+*.bak

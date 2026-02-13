@@ -1,0 +1,6 @@
+[submodule "odin-c-bindgen"]
+	path = odin-c-bindgen
+	url = https://github.com/karl-zylinski/odin-c-bindgen.git
+[submodule "ffmpeg"]
+	path = ffmpeg
+	url = https://git.ffmpeg.org/ffmpeg.git
