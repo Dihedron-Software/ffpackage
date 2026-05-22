@@ -2,3 +2,12 @@ ffmpeg-install/
 output/
 odin-c-bindgen/bindgen.exe
 *.bak
+
+# macOS build artifacts (build_ffmpeg_macos.sh)
+build-macos-*/
+depbuild-macos-*/
+deps-macos-*/
+ffmpeg-install-macos-*/
+output-macos/
+src-cache-macos/
+nv-codec-headers/
