@@ -1,14 +1,11 @@
 #!/bin/bash
 # Build FFmpeg 8.0 as LGPL 2.1+ shared DLLs using MSYS2/CLANG64.
-
-# You can clean debug or release-info by writing :
-# ./build_ffmpeg.sh clean debug
-# ./build_ffmpeg.sh clean release-info
-
-# To build release, no arguments are required otherwise
-# ./build_ffmpeg.sh debug
-# ./build_ffmpeg.sh release-info
-# Debug will allways build with debug info
+#
+# Usage:
+#   ./build_ffmpeg.sh                 # release
+#   ./build_ffmpeg.sh debug           # -O0 + debug info
+#   ./build_ffmpeg.sh release_info    # -O3 + debug info
+#   ./build_ffmpeg.sh clean           # wipe build + install + output
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 FFMPEG_SRC="$SCRIPT_DIR/ffmpeg"
@@ -26,11 +23,45 @@ pacman -S --needed --noconfirm \
     mingw-w64-clang-x86_64-clang \
     mingw-w64-clang-x86_64-llvm \
     mingw-w64-clang-x86_64-lld \
-    mingw-w64-x86_64-nasm \
-    mingw-w64-x86_64-tools-git \
+    mingw-w64-clang-x86_64-nasm \
+    mingw-w64-clang-x86_64-tools-git \
+    mingw-w64-clang-x86_64-pkgconf \
     make \
-    pkg-config \
-    diffutils
+    diffutils \
+    git
+
+pacman -S --needed --noconfirm \
+    mingw-w64-clang-x86_64-amf-headers \
+    mingw-w64-clang-x86_64-libvpl \
+    mingw-w64-clang-x86_64-vulkan-headers \
+    mingw-w64-clang-x86_64-vulkan-loader
+
+# nv-codec-headers isn't packaged for clang64 so install from upstream
+NVCODEC_DIR="$SCRIPT_DIR/nv-codec-headers"
+if [ ! -f "/clang64/lib/pkgconfig/ffnvcodec.pc" ]; then
+    echo ">>> Installing nv-codec-headers from upstream..."
+    if [ ! -d "$NVCODEC_DIR" ]; then
+        git clone --depth 1 https://github.com/FFmpeg/nv-codec-headers.git "$NVCODEC_DIR"
+    fi
+    make -C "$NVCODEC_DIR" install PREFIX=/clang64
+fi
+
+pacman -S --needed --noconfirm \
+    mingw-w64-clang-x86_64-openh264 \
+    mingw-w64-clang-x86_64-dav1d \
+    mingw-w64-clang-x86_64-svt-av1 \
+    mingw-w64-clang-x86_64-aom \
+    mingw-w64-clang-x86_64-libvpx \
+    mingw-w64-clang-x86_64-opus \
+    mingw-w64-clang-x86_64-libvorbis \
+    mingw-w64-clang-x86_64-lame \
+    mingw-w64-clang-x86_64-libtheora \
+    mingw-w64-clang-x86_64-libwebp
+
+pacman -S --needed --noconfirm \
+    mingw-w64-clang-x86_64-libass \
+    mingw-w64-clang-x86_64-libsoxr \
+    mingw-w64-clang-x86_64-zimg
 
 for tool in clang nasm make pkg-config ; do
     if ! command -v $tool &>/dev/null; then
@@ -43,12 +74,6 @@ cd "$FFMPEG_SRC"
 
 OPTIMIZATION_FLAGS="-O3"
 LIBRARY_FLAGS=""
-
-if [ "$1" = "clean" ]; then
-    echo ">>> Cleaning previous build..."
-    make distclean 2>/dev/null || true
-    rm -rf "$INSTALL_DIR" "$OUTPUT_DIR"
-fi
 
 if [ "$1" = "release_info" ]; then
     OPTIMIZATION_FLAGS="-O3 -g -gcodeview"
@@ -69,7 +94,12 @@ fi
 
 if [ ! -f "config.mak" ]; then
     echo ">>> Configuring FFmpeg (this takes a long time on MSYS2)..."
+    # MSYS base pkg-config only searches /usr/lib/pkgconfig, we need to force the clang64 one
+    export PKG_CONFIG="/clang64/bin/pkg-config"
+    export PKG_CONFIG_PATH="/clang64/lib/pkgconfig:/clang64/share/pkgconfig:${PKG_CONFIG_PATH:-}"
     ./configure \
+        --pkg-config="$PKG_CONFIG" \
+        --pkg-config-flags=--static \
         --prefix="$INSTALL_DIR" \
         --cc=clang \
         --enable-shared \
@@ -77,9 +107,35 @@ if [ ! -f "config.mak" ]; then
         --disable-programs \
         --disable-doc \
         --enable-runtime-cpudetect \
+        \
+        --enable-amf \
+        --enable-nvenc \
+        --enable-nvdec \
+        --enable-cuvid \
+        --enable-ffnvcodec \
+        --enable-libvpl \
+        --enable-d3d11va \
+        --enable-dxva2 \
+        --enable-mediafoundation \
+        \
+        --enable-libopenh264 \
+        --enable-libdav1d \
+        --enable-libsvtav1 \
+        --enable-libaom \
+        --enable-libvpx \
+        --enable-libopus \
+        --enable-libvorbis \
+        --enable-libmp3lame \
+        --enable-libtheora \
+        --enable-libwebp \
+        \
+        --enable-libass \
+        --enable-libsoxr \
+        --enable-libzimg \
+        \
         --extra-cflags="$OPTIMIZATION_FLAGS" \
-        --extra-ldflags="$LIBRARY_FLAGS" \
-        --extra-libs="-static -lz -liconv"
+        --extra-ldflags="$LIBRARY_FLAGS -static -static-libgcc -static-libstdc++" \
+        --extra-libs="-lz -liconv -lc++ -lc++abi -lunwind"
     echo ">>> Configure done."
 else
     echo ">>> Skipping configure (already configured). Use 'clean' to reconfigure."
