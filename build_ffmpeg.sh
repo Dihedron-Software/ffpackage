@@ -97,6 +97,24 @@ if [ ! -f "config.mak" ]; then
     # MSYS base pkg-config only searches /usr/lib/pkgconfig, we need to force the clang64 one
     export PKG_CONFIG="/clang64/bin/pkg-config"
     export PKG_CONFIG_PATH="/clang64/lib/pkgconfig:/clang64/share/pkgconfig:${PKG_CONFIG_PATH:-}"
+    # === Excluded codecs ===
+    # today (H.264 is our only encode codec).
+    #   GPL (copyright, would force Blick's whole binary to GPL, NEVER TOUCH THESE):
+    #     libx264 libx265 libxvid libxavs2 libdavs2 libvidstab librubberband frei0r
+    #     (postproc is GPL too but has no --disable in FFmpeg 8.0 — only builds under --enable-gpl)
+    #   Nonfree (binary would become legally unredistributable):
+    #     libfdk-aac  openssl
+    #   Apple ProRes program (software encoders only, prores_videotoolbox is fine):
+    #     prores  prores_aw  prores_ks
+    #   Dolby (live patents + trademark):
+    #     eac3 = Dolby Digital Plus ;  truehd, mlp = Dolby TrueHD
+    #   DTS:
+    #     dca
+    # Kept & encodable, licensed or license-free:
+    #   aac (AAC lic)  libopenh264 + hw H.264 (AVC lic)  hw HEVC (HEVC lic)
+    #   ac3/ac3_fixed (AC-3 patents expired 2017; license-free — just never brand
+    #     output "Dolby Digital")  mp3 opus vorbis flac av1 vp8/9 theora webp (royalty-free)
+    # =====================================================================
     ./configure \
         --pkg-config="$PKG_CONFIG" \
         --pkg-config-flags=--static \
@@ -117,6 +135,7 @@ if [ ! -f "config.mak" ]; then
         --enable-d3d11va \
         --enable-dxva2 \
         --enable-mediafoundation \
+        --enable-vulkan \
         \
         --enable-libopenh264 \
         --enable-libdav1d \
@@ -132,6 +151,19 @@ if [ ! -f "config.mak" ]; then
         --enable-libass \
         --enable-libsoxr \
         --enable-libzimg \
+        \
+        --disable-libx264 \
+        --disable-libx265 \
+        --disable-libxvid \
+        --disable-libxavs2 \
+        --disable-libdavs2 \
+        --disable-libvidstab \
+        --disable-librubberband \
+        --disable-frei0r \
+        --disable-libfdk-aac \
+        --disable-openssl \
+        --disable-network \
+        --disable-encoder=prores,prores_aw,prores_ks,eac3,truehd,mlp,dca \
         \
         --extra-cflags="$OPTIMIZATION_FLAGS" \
         --extra-ldflags="$LIBRARY_FLAGS -static -static-libgcc -static-libstdc++" \
