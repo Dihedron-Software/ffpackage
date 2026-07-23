@@ -63,6 +63,53 @@ pacman -S --needed --noconfirm \
     mingw-w64-clang-x86_64-libsoxr \
     mingw-w64-clang-x86_64-zimg
 
+# LGPL requires us to name the source that corresponds to the shipped DLLs, but pacman has no
+# version pinning — so record what was actually linked and shout when MSYS2 moves under us.
+LOCKFILE="$SCRIPT_DIR/windows-deps.lock"
+LOCKED_PKGS=$(grep -oE '^mingw-w64-clang-x86_64-[^ ]+' "$LOCKFILE" 2>/dev/null | tr '\n' '|' | sed 's/|$//')
+
+if [ "${1:-}" = "--relock" ]; then
+    {
+        sed -n '1,4p' "$LOCKFILE"
+        echo "#"
+        echo "# ffmpeg submodule commit: $(git -C "$FFMPEG_SRC" rev-parse HEAD) ($(git -C "$FFMPEG_SRC" log -1 --format=%cs))"
+        echo ""
+        pacman -Q | grep -E "^($LOCKED_PKGS) "
+    } > "$LOCKFILE.new" && mv "$LOCKFILE.new" "$LOCKFILE"
+    echo ">>> Relocked $LOCKFILE — commit it alongside the rebuilt DLLs."
+    exit 0
+fi
+
+if [ -f "$LOCKFILE" ]; then
+    echo ">>> Verifying dependency versions against windows-deps.lock..."
+    drift=0
+    while read -r pkg locked_ver; do
+        case "$pkg" in ''|'#'*) continue ;; esac
+        actual_ver=$(pacman -Q "$pkg" 2>/dev/null | awk '{print $2}')
+        if [ -z "$actual_ver" ]; then
+            echo "    MISSING: $pkg (locked $locked_ver)"; drift=$((drift+1))
+        elif [ "$actual_ver" != "$locked_ver" ]; then
+            echo "    DRIFT:   $pkg  locked $locked_ver  ->  installed $actual_ver"; drift=$((drift+1))
+        fi
+    done < "$LOCKFILE"
+
+    locked_commit=$(grep -oE 'ffmpeg submodule commit: [0-9a-f]+' "$LOCKFILE" | awk '{print $4}')
+    actual_commit=$(git -C "$FFMPEG_SRC" rev-parse HEAD 2>/dev/null)
+    if [ -n "$locked_commit" ] && [ "$locked_commit" != "$actual_commit" ]; then
+        echo "    DRIFT:   ffmpeg  locked $locked_commit  ->  checked out $actual_commit"; drift=$((drift+1))
+    fi
+
+    if [ $drift -ne 0 ]; then
+        echo ""
+        echo "ERROR: $drift dependency mismatch(es). The published source no longer corresponds"
+        echo "       to what this build would produce. Either restore the locked versions, or"
+        echo "       accept the bump with: ./build_ffmpeg.sh --relock"
+        echo "       (then update THIRD-PARTY-LICENSES.txt in the blick repo)"
+        exit 1
+    fi
+    echo "    all $(grep -c '^mingw-w64' "$LOCKFILE") packages match, ffmpeg at $actual_commit"
+fi
+
 for tool in clang nasm make pkg-config ; do
     if ! command -v $tool &>/dev/null; then
         echo "ERROR: $tool not found. Check your MSYS2 environment."
