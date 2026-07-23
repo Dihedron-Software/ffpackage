@@ -132,10 +132,27 @@ by someone else still loads under the hardened runtime.
 
 Several LGPL libraries are statically linked *into* the FFmpeg libraries and are therefore covered
 by the same obligation: **LAME 3.100**, **libsoxr 0.1.3**, **FriBidi 1.0.16** (all platforms) and
-**GNU libiconv 1.18** (Windows only). Their upstream sources are attached to this repository's
-releases. The Windows builds come from MSYS2 packages whose `-N` version suffix denotes
-distribution patches; those are in
-[msys2/MINGW-packages](https://github.com/msys2/MINGW-packages) at the matching package version.
+**GNU libiconv 1.18** (Windows only). Their upstream source tarballs are committed here in
+`lgpl-sources/`, with `SHA256SUMS.txt` to verify them -- committed rather than attached as release
+assets so that a clone or a mirror to another host carries the corresponding source with it.
+
+The Windows builds of those four come from MSYS2 packages whose `-N` version suffix denotes
+distribution patches on top of these tarballs; those patches are in
+[msys2/MINGW-packages](https://github.com/msys2/MINGW-packages) at the package versions recorded in
+`windows-deps.lock`. The macOS builds use these tarballs unmodified.
+
+When a dependency is bumped, add the new tarball alongside the old one rather than replacing it --
+Blick versions already shipped still correspond to the older source.
 
 Full license texts for every bundled component ship with Blick and are viewable via
 **Help > Third-party licenses**.
+
+## License
+
+The build, packaging and binding-generation scripts in this repository are MIT licensed -- see
+[LICENSE](LICENSE). They are deliberately permissive because LGPL 2.1 requires the scripts that
+control compilation to be provided as part of the corresponding source, which means recipients have
+to be free to actually run and modify them in order to rebuild the libraries.
+
+The `ffmpeg/` and `odin-c-bindgen/` submodules are covered by their own upstream licenses, not by
+this one.

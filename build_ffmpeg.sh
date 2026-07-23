@@ -80,7 +80,13 @@ if [ "${1:-}" = "--relock" ]; then
     exit 0
 fi
 
-if [ -f "$LOCKFILE" ]; then
+if [ ! -f "$LOCKFILE" ]; then
+    echo ""
+    echo "WARNING: windows-deps.lock is missing — dependency versions will NOT be verified."
+    echo "         It is committed to this repo; a missing copy means a broken checkout."
+    echo "         Restore it, or generate one with: ./build_ffmpeg.sh --relock"
+    echo ""
+else
     echo ">>> Verifying dependency versions against windows-deps.lock..."
     drift=0
     while read -r pkg locked_ver; do
