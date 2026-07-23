@@ -79,6 +79,10 @@ Run that once after a full build. From then on every `fetch()` checks each archi
 truncated download can't silently change what gets built. Re-run `--relock` after an intentional
 version bump.
 
+aom is the exception: it has no release tarball, only a git tag, so it is cached as a shallow clone
+and recorded as `git:<commit>` instead of a hash. That pin is checked in `dep_aom` rather than in
+`fetch()`, which guards against the upstream tag being moved.
+
 ## Building FFmpeg -- macOS
 
 ```bash

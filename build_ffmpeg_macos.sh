@@ -53,14 +53,28 @@ if [ "${1:-}" = "--relock" ]; then
         exit 1
     fi
     {
-        echo "# sha256 of every dependency source archive used for the shipped macOS build."
-        echo "# Verified by fetch() on each build. Regenerate after a bump with: ./build_ffmpeg_macos.sh --relock"
+        echo "# Identity of every dependency source used for the shipped macOS build:"
+        echo "#   <sha256>     <archive>    tarballs, verified by fetch()"
+        echo "#   git:<commit> <directory>  git-cloned deps (aom), verified where they are cloned"
+        echo "# Regenerate after an intentional bump with: ./build_ffmpeg_macos.sh --relock"
         echo "#"
         echo "# ffmpeg submodule commit: $(git -C "$FFMPEG_SRC" rev-parse HEAD) ($(git -C "$FFMPEG_SRC" log -1 --format=%cs))"
         echo ""
-        (cd "$SRC_CACHE" && shasum -a 256 * | sort -k2)
+        (
+            cd "$SRC_CACHE"
+            for f in *; do
+                [ -f "$f" ] || continue
+                case "$f" in *.tmp) continue ;; esac
+                shasum -a 256 "$f"
+            done | sort -k2
+            # aom has no release tarball, only a git tag — the commit is its equivalent identity
+            for d in */; do
+                [ -d "$d/.git" ] || continue
+                echo "git:$(git -C "$d" rev-parse HEAD)  ${d%/}"
+            done
+        )
     } > "$SRC_MANIFEST"
-    echo ">>> Wrote $SRC_MANIFEST ($(grep -c '^[0-9a-f]' "$SRC_MANIFEST") archives)"
+    echo ">>> Wrote $SRC_MANIFEST ($(grep -c '^[0-9a-f]' "$SRC_MANIFEST") archives, $(grep -c '^git:' "$SRC_MANIFEST") git checkouts)"
     echo "    Commit it alongside the rebuilt dylibs."
     exit 0
 fi
@@ -311,6 +325,20 @@ dep_aom() {
     local repo="$SRC_CACHE/aom-$AOM_VER"
     if [ ! -d "$repo" ]; then
         git clone --depth 1 -b "v$AOM_VER" https://aomedia.googlesource.com/aom "$repo"
+    fi
+    # aom bypasses fetch(), so its pin is checked here instead
+    if [ -f "$SRC_MANIFEST" ]; then
+        local want have
+        want=$(awk -v d="aom-$AOM_VER" '$2==d{print $1; exit}' "$SRC_MANIFEST")
+        have="git:$(git -C "$repo" rev-parse HEAD)"
+        if [ -n "$want" ] && [ "$want" != "$have" ]; then
+            echo "" >&2
+            echo "ERROR: aom clone is at the wrong commit" >&2
+            echo "       expected $want" >&2
+            echo "       got      $have" >&2
+            echo "       Delete $repo to re-clone, or accept the change with --relock." >&2
+            exit 1
+        fi
     fi
     local d="$WORK/aom-$AOM_VER"; rm -rf "$d"; cp -R "$repo" "$d"
     local aom_cross=()
