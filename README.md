@@ -66,8 +66,18 @@ build verifies against it and **aborts on any mismatch**. When a bump is intenti
 Then regenerate `THIRD-PARTY-LICENSES.txt` in the Blick repo (`update_licenses.sh`) so the shipped
 notices match the new versions.
 
-macOS needs no lockfile -- `build_ffmpeg_macos.sh` pins every dependency version inline and builds
-them all from upstream source.
+macOS pins every dependency *version* inline in `build_ffmpeg_macos.sh`, so there is nothing to
+resolve and no version drift to catch. What it does need is *content* verification, since it
+downloads those versions over the network:
+
+```bash
+./build_ffmpeg_macos.sh --relock   # hash src-cache-macos/ into macos-deps.sha256
+```
+
+Run that once after a full build. From then on every `fetch()` checks each archive against
+`macos-deps.sha256` and aborts on a mismatch, so a replaced upstream tarball, a bad mirror or a
+truncated download can't silently change what gets built. Re-run `--relock` after an intentional
+version bump.
 
 ## Building FFmpeg -- macOS
 

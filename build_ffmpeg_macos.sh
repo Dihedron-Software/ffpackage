@@ -5,7 +5,7 @@
 # names; min-OS macOS 13.0. Build tools auto-install via Homebrew; sources cached
 # in src-cache-macos/.
 #
-# Usage: ./build_ffmpeg_macos.sh [clean|debug|release_info]
+# Usage: ./build_ffmpeg_macos.sh [clean|debug|release_info|--relock]
 
 set -euo pipefail
 
@@ -13,6 +13,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 FFMPEG_SRC="$SCRIPT_DIR/ffmpeg"
 OUTPUT_DIR="$SCRIPT_DIR/output-macos"
 SRC_CACHE="$SCRIPT_DIR/src-cache-macos"
+SRC_MANIFEST="$SCRIPT_DIR/macos-deps.sha256"
 MIN_OS="13.0"
 HOST_ARCH="$(uname -m)"
 ARCHS=(arm64 x86_64)
@@ -42,6 +43,27 @@ echo "Source:  $FFMPEG_SRC"
 echo "Output:  $OUTPUT_DIR"
 echo "Min OS:  macOS $MIN_OS"
 echo ""
+
+# ---- relock -----------------------------------------------------------------
+# Records the exact bytes every dependency was built from, so the source we publish for LGPL
+# can be shown to match the shipped dylibs. Run after an intentional version bump.
+if [ "${1:-}" = "--relock" ]; then
+    if [ ! -d "$SRC_CACHE" ] || [ -z "$(ls -A "$SRC_CACHE" 2>/dev/null)" ]; then
+        echo "ERROR: $SRC_CACHE is empty — run a full build first so the tarballs are downloaded." >&2
+        exit 1
+    fi
+    {
+        echo "# sha256 of every dependency source archive used for the shipped macOS build."
+        echo "# Verified by fetch() on each build. Regenerate after a bump with: ./build_ffmpeg_macos.sh --relock"
+        echo "#"
+        echo "# ffmpeg submodule commit: $(git -C "$FFMPEG_SRC" rev-parse HEAD) ($(git -C "$FFMPEG_SRC" log -1 --format=%cs))"
+        echo ""
+        (cd "$SRC_CACHE" && shasum -a 256 * | sort -k2)
+    } > "$SRC_MANIFEST"
+    echo ">>> Wrote $SRC_MANIFEST ($(grep -c '^[0-9a-f]' "$SRC_MANIFEST") archives)"
+    echo "    Commit it alongside the rebuilt dylibs."
+    exit 0
+fi
 
 # ---- clean ------------------------------------------------------------------
 if [ "${1:-}" = "clean" ]; then
@@ -132,6 +154,25 @@ fetch() {
         echo ">>> Downloading $out" >&2
         curl -fL --retry 3 -o "$dst.tmp" "$url" >&2
         mv "$dst.tmp" "$dst"
+    fi
+    # An upstream tarball that changed under us would silently invalidate the source we publish.
+    if [ -f "$SRC_MANIFEST" ]; then
+        local want have
+        # shasum marks binary-mode entries with a leading '*' on the filename
+        want=$(awk -v f="$out" '{sub(/^\*/,"",$2)} $2==f{print $1; exit}' "$SRC_MANIFEST")
+        if [ -n "$want" ]; then
+            have=$(shasum -a 256 "$dst" | awk '{print $1}')
+            if [ "$want" != "$have" ]; then
+                echo "" >&2
+                echo "ERROR: checksum mismatch for $out" >&2
+                echo "       expected $want" >&2
+                echo "       got      $have" >&2
+                echo "       Delete $dst to re-download, or accept the change with --relock." >&2
+                exit 1
+            fi
+        else
+            echo "    NOTE: $out is not in macos-deps.sha256 — run --relock to record it" >&2
+        fi
     fi
     echo "$dst"
 }
