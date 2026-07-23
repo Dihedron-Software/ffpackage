@@ -1,71 +1,141 @@
 # ffpackage
 
-Build FFmpeg 8.0 as LGPL 2.1+ shared DLLs for Windows and generate Odin language bindings.
+Builds FFmpeg 8.0 as LGPL 2.1+ shared libraries for Windows and macOS, and generates the Odin
+bindings Blick uses against them.
+
+This repository is also the **corresponding source** for the FFmpeg libraries shipped with Blick:
+it pins the exact FFmpeg commit (as a submodule) and contains the scripts that configure and build
+it, which is what LGPL 2.1 section 0 means by "the scripts used to control compilation and
+installation of the library". See [LGPL compliance](#lgpl-compliance) below.
+
+## Clone
+
+The FFmpeg source is a submodule pinned to the exact shipped commit:
+
+```bash
+git clone --recursive https://github.com/Dihedron-Software/ffpackage.git
+# or, in an existing clone:
+git submodule update --init --recursive
+```
 
 ## What this produces
 
 ```
-output/
-  dll/          *.dll files (runtime)
-  lib/          *.lib files (link-time)
-  *.odin        Odin bindings (package ffmpeg)
+output/          Windows
+  dll/           *.dll  (runtime)
+  lib/           *.lib  (link-time)
+  *.odin         Odin bindings (package ffmpeg)
+
+output-macos/    macOS
+  dylib/         *.dylib (universal arm64 + x86_64, @rpath install names, min-OS 13.0)
 ```
 
-Drop `output/` into Blick's source as `lib/ffmpeg/`. Copy `output/dll/*.dll` next to the Blick executable.
+Drop `output/` into Blick's source as `lib/ffmpeg/`.
 
-## Prerequisites
+## Building FFmpeg -- Windows
 
-### For building FFmpeg (one-time setup)
-
-1. **MSYS2** -- https://www.msys2.org/
-2. Open **MSYS2 MINGW64** shell and install dependencies:
-
-```bash
-pacman -S --needed mingw-w64-x86_64-gcc mingw-w64-x86_64-nasm make pkg-config diffutils
-```
-
-### For generating Odin bindings (one-time setup)
-
-1. **Odin compiler** -- https://odin-lang.org/ (must be on PATH)
-2. **LLVM/Clang 16+** -- https://github.com/llvm/llvm-project/releases
-   - Copy `lib/libclang.lib` into `odin-c-bindgen/libclang/`
-   - Copy `bin/libclang.dll` into `odin-c-bindgen/` (next to where `bindgen.exe` will be)
-
-## Step 1: Build FFmpeg
-
-From the **MSYS2 MINGW64** shell, in this directory:
+Requires [MSYS2](https://www.msys2.org/). Open the **MSYS2 CLANG64** shell (not MINGW64 -- the
+build is clang-based) and run:
 
 ```bash
 ./build_ffmpeg.sh
 ```
 
-This configures FFmpeg as LGPL 2.1+, builds shared DLLs, and outputs them into `output/dll/` and `output/lib/`.
+The script installs its own toolchain and codec packages via `pacman`, so there is no manual
+dependency step. Other modes:
 
-**Output:**
-- `output/dll/` .dll files
-- `output/lib/` .lib files
-- `ffmpeg-install/` used internally by the bindgen 
+```bash
+./build_ffmpeg.sh debug           # -O0 + debug info
+./build_ffmpeg.sh release_info    # -O3 + debug info
+./build_ffmpeg.sh clean           # wipe build + install + output
+./build_ffmpeg.sh --relock        # accept new dependency versions (see below)
+```
 
-## Step 2: Generate Odin bindings
+### Dependency locking
 
-From **PowerShell**, in this directory:
+`pacman` has no version pinning, so an MSYS2 upgrade can silently change what gets linked into the
+DLLs -- which would leave the published source no longer matching the shipped binaries.
+
+`windows-deps.lock` records the exact package versions and FFmpeg commit that were used. Every
+build verifies against it and **aborts on any mismatch**. When a bump is intentional:
+
+```bash
+./build_ffmpeg.sh --relock        # rewrite the lock, then rebuild
+```
+
+Then regenerate `THIRD-PARTY-LICENSES.txt` in the Blick repo (`update_licenses.sh`) so the shipped
+notices match the new versions.
+
+macOS needs no lockfile -- `build_ffmpeg_macos.sh` pins every dependency version inline and builds
+them all from upstream source.
+
+## Building FFmpeg -- macOS
+
+```bash
+./build_ffmpeg_macos.sh           # also: clean | debug | release_info
+```
+
+Builds universal (arm64 + x86_64) dylibs depending only on macOS system frameworks. Every codec
+dependency is compiled from upstream source at the versions pinned near the top of the script and
+statically linked in. Build tools (nasm, cmake, meson, ...) auto-install via Homebrew; Xcode Command
+Line Tools must already be present. Source tarballs are cached in `src-cache-macos/`.
+
+## Generating the Odin bindings
+
+Requires the [Odin compiler](https://odin-lang.org/) on PATH and LLVM/Clang 16+:
+
+- copy `lib/libclang.lib` into `odin-c-bindgen/libclang/`
+- copy `bin/libclang.dll` into `odin-c-bindgen/`
+
+Then, from **PowerShell**:
 
 ```powershell
 .\generate_bindings.ps1
 ```
 
-This builds the bindgen (if needed), runs it against all FFmpeg headers listed in `bindgen-config/bindgen.sjson`, post-processes each `.odin` file to set the correct `foreign import` per library, and copies `helpers.odin` into the output.
+Builds the bindgen if needed, runs it over the headers listed in `bindgen-config/bindgen.sjson`,
+rewrites each `.odin` file's `foreign import` to the right library, and copies `hand-written/` into
+the output.
 
-**Output:**
-- `output/*.odin` -- one file per FFmpeg header, all in `package ffmpeg`
+To add or remove a header, edit `bindgen-config/bindgen.sjson`. If it comes from a new FFmpeg
+library, also update the `$headerToLib` mapping in `generate_bindings.ps1`.
 
-## Step 3: Manual fixups
+If the bindgen emits declarations that don't compile, prefer adding them to the config's `remove`
+list or overriding the type there, rather than hand-editing generated files.
 
-If the bindgen produces declarations that don't compile or aren't needed, edit `bindgen-config/bindgen.sjson` and add entries to the `remove` list, or override types.
-Ideally we should be able to do this through the config, and not manually touch the generated files at all.
+## Packaging into Blick
 
-## Adding/removing headers
+```powershell
+.\package_windows.ps1             # -SkipSign to skip Authenticode signing
+```
+```bash
+./package_macos.sh                # --notarize to submit to Apple
+```
 
-Edit `bindgen-config/bindgen.sjson` to add or remove headers from the `inputs` list.
+Both verify the build is legally clean (no GPL/nonfree in `config.h`), confirm the expected shared
+libraries are present, sign them, zip them, and replace the corresponding archive in the Blick repo.
 
-If you add a header from a new FFmpeg library, also update the `$headerToLib` mapping in `generate_bindings.ps1` so the post-processing assigns the correct `foreign import`.
+Windows signing uses the Dihedron certificate held on Certum's SimplySign cloud CSP -- log in via
+SimplySign Desktop first. macOS signing needs a Developer ID Application identity, and
+notarization additionally needs a `notarytool` keychain profile.
+
+## LGPL compliance
+
+FFmpeg is configured **without** `--enable-gpl` and **without** `--enable-nonfree`, so the output is
+LGPL 2.1+ and may be linked by closed-source software. `package_windows.ps1` and `package_macos.sh`
+both assert this against the generated `config.h` rather than trusting the configure line.
+
+The libraries are shipped as separate shared library files and are not statically linked into Blick,
+so they can be replaced with a user's own rebuild. On macOS, Blick is signed with
+`com.apple.security.cs.disable-library-validation` specifically so that a replacement dylib signed
+by someone else still loads under the hardened runtime.
+
+Several LGPL libraries are statically linked *into* the FFmpeg libraries and are therefore covered
+by the same obligation: **LAME 3.100**, **libsoxr 0.1.3**, **FriBidi 1.0.16** (all platforms) and
+**GNU libiconv 1.18** (Windows only). Their upstream sources are attached to this repository's
+releases. The Windows builds come from MSYS2 packages whose `-N` version suffix denotes
+distribution patches; those are in
+[msys2/MINGW-packages](https://github.com/msys2/MINGW-packages) at the matching package version.
+
+Full license texts for every bundled component ship with Blick and are viewable via
+**Help > Third-party licenses**.
