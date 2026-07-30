@@ -63,6 +63,7 @@ $headerToLib = @{
     "buffer"         = "avutil"
     "channel_layout" = "avutil"
     "dict"           = "avutil"
+    "display"        = "avutil"
     "frame"          = "avutil"
     "hwcontext"      = "avutil"
     "imgutils"       = "avutil"

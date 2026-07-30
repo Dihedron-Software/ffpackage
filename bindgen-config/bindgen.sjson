@@ -11,6 +11,7 @@ inputs = [
     "../ffmpeg-install/include/libavutil/buffer.h",
     "../ffmpeg-install/include/libavutil/channel_layout.h",
     "../ffmpeg-install/include/libavutil/dict.h",
+    "../ffmpeg-install/include/libavutil/display.h",
     "../ffmpeg-install/include/libavutil/frame.h",
     "../ffmpeg-install/include/libavutil/hwcontext.h",
     "../ffmpeg-install/include/libavutil/imgutils.h",
