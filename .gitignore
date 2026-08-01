@@ -1,7 +1,9 @@
 ffmpeg-install/
-output/
+output/dll
 odin-c-bindgen/bindgen.exe
 *.bak
+*.zip
+*.lib
 
 # macOS build artifacts (build_ffmpeg_macos.sh)
 build-macos-*/
