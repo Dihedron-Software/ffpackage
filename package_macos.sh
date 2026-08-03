@@ -4,8 +4,8 @@
 # Runs on macOS AFTER build_ffmpeg_macos.sh has produced output-macos/dylib/*.dylib.
 # Mirrors package_windows.ps1. Steps:
 #   1. Assert the build is legally clean (config.h + config_components.h: no GPL/nonfree,
-#      excluded encoders gone) for each built arch.
-#   2. Assert the 7 expected universal dylibs are present and really fat (arm64 + x86_64).
+#      excluded encoders gone).
+#   2. Assert the 7 expected dylibs are present and arm64.
 #   3. Re-sign each dylib with a Developer ID Application identity (hardened runtime +
 #      secure timestamp), replacing the ad-hoc signature build_ffmpeg_macos.sh applied.
 #   4. Verify each signature (strict, Developer ID authority, timestamp present).
@@ -30,7 +30,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 DYLIB_DIR="$SCRIPT_DIR/output-macos/dylib"
 TARGET_ZIP="$SCRIPT_DIR/../blick/ffmpeg_macos.zip"
 STAGE_ZIP="$SCRIPT_DIR/output-macos/ffmpeg_macos.zip"
-CONFIG_DIRS=("$SCRIPT_DIR/build-macos-arm64" "$SCRIPT_DIR/build-macos-x86_64")
+CONFIG_DIR="$SCRIPT_DIR/build-macos-arm64"
 
 IDENTITY="${MACOS_SIGN_IDENTITY:-}"
 KEYCHAIN_PROFILE="${NOTARY_PROFILE:-}"
@@ -77,48 +77,38 @@ check() {  # check <file> <MACRO> <want>
     fi
 }
 
-CHECKED_ARCH=0
-for dir in "${CONFIG_DIRS[@]}"; do
-    ch="$dir/config.h"; cc="$dir/config_components.h"
-    [ -f "$ch" ] || continue
-    [ -f "$cc" ] || fail "$cc missing (stale build?) - re-run build_ffmpeg_macos.sh"
-    # GPL/nonfree/external libs live in config.h
-    check "$ch" CONFIG_GPL 0
-    check "$ch" CONFIG_NONFREE 0
-    check "$ch" CONFIG_LIBX264 0
-    check "$ch" CONFIG_LIBX265 0
-    check "$ch" CONFIG_LIBFDK_AAC 0
-    check "$ch" CONFIG_LIBOPENH264 1
-    # per-codec encoder macros live in config_components.h
-    check "$cc" CONFIG_AAC_ENCODER 1
-    check "$cc" CONFIG_PRORES_ENCODER 0
-    check "$cc" CONFIG_PRORES_AW_ENCODER 0
-    check "$cc" CONFIG_PRORES_KS_ENCODER 0
-    check "$cc" CONFIG_EAC3_ENCODER 0
-    check "$cc" CONFIG_TRUEHD_ENCODER 0
-    check "$cc" CONFIG_MLP_ENCODER 0
-    check "$cc" CONFIG_DCA_ENCODER 0
-    CHECKED_ARCH=$((CHECKED_ARCH + 1))
-done
-[ "$CHECKED_ARCH" -gt 0 ] || fail "no build-macos-*/config.h found - run build_ffmpeg_macos.sh first."
+ch="$CONFIG_DIR/config.h"; cc="$CONFIG_DIR/config_components.h"
+[ -f "$ch" ] || fail "$ch not found - run build_ffmpeg_macos.sh first."
+[ -f "$cc" ] || fail "$cc missing (stale build?) - re-run build_ffmpeg_macos.sh"
+# GPL/nonfree/external libs live in config.h
+check "$ch" CONFIG_GPL 0
+check "$ch" CONFIG_NONFREE 0
+check "$ch" CONFIG_LIBX264 0
+check "$ch" CONFIG_LIBX265 0
+check "$ch" CONFIG_LIBFDK_AAC 0
+check "$ch" CONFIG_LIBOPENH264 1
+# per-codec encoder macros live in config_components.h
+check "$cc" CONFIG_AAC_ENCODER 1
+check "$cc" CONFIG_PRORES_ENCODER 0
+check "$cc" CONFIG_PRORES_AW_ENCODER 0
+check "$cc" CONFIG_PRORES_KS_ENCODER 0
+check "$cc" CONFIG_EAC3_ENCODER 0
+check "$cc" CONFIG_TRUEHD_ENCODER 0
+check "$cc" CONFIG_MLP_ENCODER 0
+check "$cc" CONFIG_DCA_ENCODER 0
 [ "$CONFIG_BAD" -eq 0 ] || fail "config does not match the licensed posture. Do NOT ship this build."
-ok "GPL/nonfree off; x264/x265/fdk-aac and ProRes/Dolby/DTS encoders absent; AAC+openh264 present ($CHECKED_ARCH arch)."
+ok "GPL/nonfree off; x264/x265/fdk-aac and ProRes/Dolby/DTS encoders absent; AAC+openh264 present."
 
-# ---- 2. presence + fat check ------------------------------------------------
+# ---- 2. presence + arch check -----------------------------------------------
 echo ""
-echo "${CYAN}[2/7] Checking universal dylibs${RST}"
+echo "${CYAN}[2/7] Checking dylibs${RST}"
 [ -d "$DYLIB_DIR" ] || fail "dylib dir not found: $DYLIB_DIR"
 for f in $EXPECTED; do
     [ -f "$DYLIB_DIR/$f" ] || fail "missing expected dylib: $f"
     archs=$(lipo -archs "$DYLIB_DIR/$f")
-    case "$archs" in
-        *arm64*) ;; *) fail "$f missing arm64 slice (got: $archs)" ;;
-    esac
-    case "$archs" in
-        *x86_64*) ;; *) fail "$f missing x86_64 slice (got: $archs)" ;;
-    esac
+    [ "$archs" = "arm64" ] || fail "$f is not arm64-only (got: $archs)"
 done
-ok "7 universal (arm64 + x86_64) dylibs present."
+ok "7 arm64 dylibs present."
 
 # ---- 3. sign ----------------------------------------------------------------
 if [ "$DO_SIGN" -eq 0 ]; then

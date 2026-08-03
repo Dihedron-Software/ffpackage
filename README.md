@@ -27,7 +27,7 @@ output/          Windows
   *.odin         Odin bindings (package ffmpeg)
 
 output-macos/    macOS
-  dylib/         *.dylib (universal arm64 + x86_64, @rpath install names, min-OS 13.0)
+  dylib/         *.dylib (arm64, @rpath install names, min-OS 13.0)
 ```
 
 Drop `output/` into Blick's source as `lib/ffmpeg/`.
@@ -89,7 +89,7 @@ and recorded as `git:<commit>` instead of a hash. That pin is checked in `dep_ao
 ./build_ffmpeg_macos.sh           # also: clean | debug | release_info
 ```
 
-Builds universal (arm64 + x86_64) dylibs depending only on macOS system frameworks. Every codec
+Builds arm64 dylibs depending only on macOS system frameworks. Every codec
 dependency is compiled from upstream source at the versions pinned near the top of the script and
 statically linked in. Build tools (nasm, cmake, meson, ...) auto-install via Homebrew; Xcode Command
 Line Tools must already be present. Source tarballs are cached in `src-cache-macos/`.

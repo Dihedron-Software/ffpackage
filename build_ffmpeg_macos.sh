@@ -1,5 +1,5 @@
 #!/bin/bash
-# Build FFmpeg 8.0 as universal (arm64 + x86_64) LGPL shared dylibs for macOS.
+# Build FFmpeg 8.0 as arm64 LGPL shared dylibs for macOS.
 # Codecs (same set as build_ffmpeg.sh) are built from source and static-linked,
 # so output-macos/dylib/ depends only on macOS system frameworks. @rpath/ install
 # names; min-OS macOS 13.0. Build tools auto-install via Homebrew; sources cached
@@ -15,8 +15,7 @@ OUTPUT_DIR="$SCRIPT_DIR/output-macos"
 SRC_CACHE="$SCRIPT_DIR/src-cache-macos"
 SRC_MANIFEST="$SCRIPT_DIR/macos-deps.sha256"
 MIN_OS="13.0"
-HOST_ARCH="$(uname -m)"
-ARCHS=(arm64 x86_64)
+ARCH=arm64
 
 # ---- codec/dependency version pins -----------------------------------------
 OGG_VER=1.3.5
@@ -38,7 +37,7 @@ HARFBUZZ_VER=10.1.0
 UNIBREAK_VER=6.1
 LIBASS_VER=0.17.3
 
-echo "=== FFmpeg LGPL 2.1+ macOS universal Shared Build (codecs from source) ==="
+echo "=== FFmpeg LGPL 2.1+ macOS arm64 Shared Build (codecs from source) ==="
 echo "Source:  $FFMPEG_SRC"
 echo "Output:  $OUTPUT_DIR"
 echo "Min OS:  macOS $MIN_OS"
@@ -82,12 +81,10 @@ fi
 # ---- clean ------------------------------------------------------------------
 if [ "${1:-}" = "clean" ]; then
     echo ">>> Cleaning previous build..."
-    for arch in "${ARCHS[@]}"; do
-        rm -rf "$SCRIPT_DIR/build-macos-$arch"
-        rm -rf "$SCRIPT_DIR/ffmpeg-install-macos-$arch"
-        rm -rf "$SCRIPT_DIR/deps-macos-$arch"
-        rm -rf "$SCRIPT_DIR/depbuild-macos-$arch"
-    done
+    rm -rf "$SCRIPT_DIR/build-macos-$ARCH"
+    rm -rf "$SCRIPT_DIR/ffmpeg-install-macos-$ARCH"
+    rm -rf "$SCRIPT_DIR/deps-macos-$ARCH"
+    rm -rf "$SCRIPT_DIR/depbuild-macos-$ARCH"
     rm -rf "$SCRIPT_DIR/ffmpeg-install-macos"   # legacy single-arch dir
     rm -rf "$OUTPUT_DIR"
     # src-cache-macos (downloaded tarballs) kept; rm by hand for a full reset.
@@ -157,7 +154,7 @@ if [ "$JOBS" -gt 8 ]; then JOBS=8; fi
 
 mkdir -p "$SRC_CACHE"
 
-# ---- generic helpers (read per-arch globals set in build_deps_for_arch) -----
+# ---- generic helpers (read globals set in build_deps) -----------------------
 
 # fetch <url> [outfile] -> caches into $SRC_CACHE, echoes the local path
 fetch() {
@@ -199,37 +196,6 @@ unpack() {
     echo "$WORK/$subdir"
 }
 
-# write_meson_cross -> writes $MESON_CROSS for the target arch
-write_meson_cross() {
-    local cpu_family
-    case "$ARCH" in
-        arm64)  cpu_family=aarch64 ;;
-        x86_64) cpu_family=x86_64 ;;
-    esac
-    cat > "$MESON_CROSS" <<EOF
-[binaries]
-c = ['clang', '-arch', '$ARCH']
-cpp = ['clang++', '-arch', '$ARCH']
-objc = ['clang', '-arch', '$ARCH']
-ar = 'ar'
-strip = 'strip'
-pkg-config = 'pkg-config'
-nasm = 'nasm'
-
-[built-in options]
-c_args = ['-arch', '$ARCH', '-mmacosx-version-min=$MIN_OS']
-c_link_args = ['-arch', '$ARCH', '-mmacosx-version-min=$MIN_OS']
-cpp_args = ['-arch', '$ARCH', '-mmacosx-version-min=$MIN_OS']
-cpp_link_args = ['-arch', '$ARCH', '-mmacosx-version-min=$MIN_OS']
-
-[host_machine]
-system = 'darwin'
-cpu_family = '$cpu_family'
-cpu = '$ARCH'
-endian = 'little'
-EOF
-}
-
 # build_autotools <src-dir> [extra configure args...]
 build_autotools() {
     local dir="$1"; shift
@@ -237,7 +203,6 @@ build_autotools() {
       # Xiph libs inject the obsolete PPC flag -force_cpusubtype_ALL; modern ld rejects it.
       sed -i '' 's/-force_cpusubtype_ALL//g' configure 2>/dev/null || true
       ./configure --prefix="$PREFIX" --enable-static --disable-shared \
-          ${CONFIGURE_HOST[@]+"${CONFIGURE_HOST[@]}"} \
           CC="$CC" CXX="$CXX" \
           CFLAGS="$ARCH_CFLAGS" CXXFLAGS="$ARCH_CFLAGS" LDFLAGS="$ARCH_LDFLAGS" \
           "$@"
@@ -250,7 +215,7 @@ build_cmake() {
     local dir="$1"; shift
     ( cd "$dir"
       rm -rf _b && mkdir _b && cd _b
-      cmake -G Ninja "${CMAKE_CROSS[@]}" \
+      cmake -G Ninja "${CMAKE_COMMON[@]}" \
           -DCMAKE_INSTALL_PREFIX="$PREFIX" \
           -DCMAKE_BUILD_TYPE=Release \
           -DBUILD_SHARED_LIBS=OFF \
@@ -264,11 +229,9 @@ build_cmake() {
 # build_meson <src-dir> [extra -D args...]
 build_meson() {
     local dir="$1"; shift
-    local cross=()
-    [ -n "$MESON_CROSS" ] && cross=(--cross-file "$MESON_CROSS")
     ( cd "$dir"
       rm -rf _b
-      meson setup _b ${cross[@]+"${cross[@]}"} \
+      meson setup _b \
           --prefix="$PREFIX" \
           --buildtype=release \
           --default-library=static \
@@ -312,13 +275,7 @@ dep_dav1d() {
 dep_svtav1() {
     local t d; t=$(fetch "https://gitlab.com/AOMediaCodec/SVT-AV1/-/archive/v$SVTAV1_VER/SVT-AV1-v$SVTAV1_VER.tar.gz")
     d=$(unpack "$t" "SVT-AV1-v$SVTAV1_VER")
-    # Force CMAKE_SYSTEM_PROCESSOR so bundled cpuinfo compiles the target's x86 sources, not the host's.
-    local svt_cross=()
-    if [ "$ARCH" != "$HOST_ARCH" ]; then
-        svt_cross=(-DCMAKE_SYSTEM_NAME=Darwin -DCMAKE_SYSTEM_PROCESSOR="$ARCH")
-    fi
-    build_cmake "$d" -DBUILD_APPS=OFF -DBUILD_DEC=OFF -DBUILD_TESTING=OFF \
-        ${svt_cross[@]+"${svt_cross[@]}"}
+    build_cmake "$d" -DBUILD_APPS=OFF -DBUILD_DEC=OFF -DBUILD_TESTING=OFF
 }
 dep_aom() {
     # aom ships only via git; cache a shallow clone.
@@ -341,24 +298,15 @@ dep_aom() {
         fi
     fi
     local d="$WORK/aom-$AOM_VER"; rm -rf "$d"; cp -R "$repo" "$d"
-    local aom_cross=()
-    if [ "$ARCH" != "$HOST_ARCH" ]; then
-        aom_cross=(-DCMAKE_TOOLCHAIN_FILE="$d/build/cmake/toolchains/x86_64-macos.cmake")
-    fi
     build_cmake "$d" -DENABLE_EXAMPLES=OFF -DENABLE_TESTS=OFF -DENABLE_DOCS=OFF \
-        -DENABLE_TOOLS=OFF -DCONFIG_AV1_ENCODER=1 -DCONFIG_AV1_DECODER=1 ${aom_cross[@]+"${aom_cross[@]}"}
+        -DENABLE_TOOLS=OFF -DCONFIG_AV1_ENCODER=1 -DCONFIG_AV1_DECODER=1
 }
 dep_vpx() {
     local t d; t=$(fetch "https://github.com/webmproject/libvpx/archive/refs/tags/v$VPX_VER.tar.gz" "libvpx-$VPX_VER.tar.gz")
     d=$(unpack "$t" "libvpx-$VPX_VER")
-    local vpx_target
-    case "$ARCH" in
-        arm64)  vpx_target="arm64-darwin22-gcc" ;;
-        x86_64) vpx_target="x86_64-darwin22-gcc" ;;
-    esac
     ( cd "$d"
       CC="$CC" CXX="$CXX" \
-      ./configure --prefix="$PREFIX" --target="$vpx_target" \
+      ./configure --prefix="$PREFIX" --target="arm64-darwin22-gcc" \
           --enable-static --disable-shared \
           --disable-examples --disable-tools --disable-docs --disable-unit-tests \
           --enable-vp8 --enable-vp9 --enable-pic \
@@ -434,8 +382,7 @@ run_dep() {
     touch "$stamp"
 }
 
-build_deps_for_arch() {
-    ARCH="$1"
+build_deps() {
     PREFIX="$SCRIPT_DIR/deps-macos-$ARCH"
     WORK="$SCRIPT_DIR/depbuild-macos-$ARCH"
     # Bake arch/min-OS into CC/CXX so they survive configures that clobber CFLAGS (Xiph).
@@ -443,35 +390,19 @@ build_deps_for_arch() {
     CXX="clang++ -arch $ARCH -mmacosx-version-min=$MIN_OS"
     ARCH_CFLAGS="-arch $ARCH -mmacosx-version-min=$MIN_OS -O3 -fPIC"
     ARCH_LDFLAGS="-arch $ARCH -mmacosx-version-min=$MIN_OS"
-    # --host only for real cross-builds (it forces cross-mode, tripping old config.sub);
-    # autotools wants 'aarch64', not clang's 'arm64'.
-    if [ "$ARCH" != "$HOST_ARCH" ]; then
-        case "$ARCH" in
-            arm64)  CONFIGURE_HOST=(--host=aarch64-apple-darwin) ;;
-            x86_64) CONFIGURE_HOST=(--host=x86_64-apple-darwin) ;;
-        esac
-    else
-        CONFIGURE_HOST=()
-    fi
-    CMAKE_CROSS=(
+    CMAKE_COMMON=(
         -DCMAKE_OSX_ARCHITECTURES="$ARCH"
         -DCMAKE_OSX_DEPLOYMENT_TARGET="$MIN_OS"
         -DCMAKE_PREFIX_PATH="$PREFIX"
     )
-    if [ "$ARCH" != "$HOST_ARCH" ]; then
-        MESON_CROSS="$WORK/meson-cross-$ARCH.txt"
-    else
-        MESON_CROSS=""
-    fi
 
     mkdir -p "$WORK"
-    [ -n "$MESON_CROSS" ] && write_meson_cross
     # Sandbox pkg-config to our prefix only, so codecs can't pick up Homebrew's
-    # arch-specific dylibs (e.g. libunibreak) and break the cross slice.
+    # dylibs (e.g. libunibreak) and leak them into the static link.
     export PKG_CONFIG_LIBDIR="$PREFIX/lib/pkgconfig"
     unset PKG_CONFIG_PATH 2>/dev/null || true
 
-    # Sandbox hides system zlib.pc; seed one pointing at the SDK's universal libz.
+    # Sandbox hides system zlib.pc; seed one pointing at the SDK's libz.
     mkdir -p "$PREFIX/lib/pkgconfig"
     if [ ! -f "$PREFIX/lib/pkgconfig/zlib.pc" ]; then
         cat > "$PREFIX/lib/pkgconfig/zlib.pc" <<'PC'
@@ -480,7 +411,7 @@ exec_prefix=${prefix}
 libdir=${exec_prefix}/lib
 includedir=${prefix}/include
 Name: zlib
-Description: zlib compression library (macOS system, universal)
+Description: zlib compression library (macOS system)
 Version: 1.2.12
 Libs: -lz
 Cflags:
@@ -497,26 +428,20 @@ PC
     echo ">>> [$ARCH] deps complete."
 }
 
-# ---- FFmpeg build per arch --------------------------------------------------
-build_ffmpeg_for_arch() {
-    local arch="$1"
-    local build_dir="$SCRIPT_DIR/build-macos-$arch"
-    local install_dir="$SCRIPT_DIR/ffmpeg-install-macos-$arch"
-    local deps="$SCRIPT_DIR/deps-macos-$arch"
+# ---- FFmpeg build -----------------------------------------------------------
+build_ffmpeg() {
+    local build_dir="$SCRIPT_DIR/build-macos-$ARCH"
+    local install_dir="$SCRIPT_DIR/ffmpeg-install-macos-$ARCH"
+    local deps="$SCRIPT_DIR/deps-macos-$ARCH"
 
     echo ""
-    echo ">>> [$arch] FFmpeg build dir:   $build_dir"
-    echo ">>> [$arch] FFmpeg install dir: $install_dir"
-
-    local cross_args=()
-    if [ "$arch" != "$HOST_ARCH" ]; then
-        cross_args+=(--enable-cross-compile --target-os=darwin)
-    fi
+    echo ">>> [$ARCH] FFmpeg build dir:   $build_dir"
+    echo ">>> [$ARCH] FFmpeg install dir: $install_dir"
 
     if [ ! -f "$build_dir/ffbuild/config.mak" ]; then
         mkdir -p "$build_dir"
         ( cd "$build_dir"
-          echo ">>> [$arch] Configuring FFmpeg..."
+          echo ">>> [$ARCH] Configuring FFmpeg..."
           # === Excluded codecs  ===
           # today (H.264 is our only encode codec).
           #   GPL (copyright, would force Blick's whole binary to GPL, NEVER TOUCH THESE):
@@ -538,10 +463,9 @@ build_ffmpeg_for_arch() {
           PKG_CONFIG_LIBDIR="$deps/lib/pkgconfig" \
           "$FFMPEG_SRC/configure" \
               --prefix="$install_dir" \
-              --cc="clang -arch $arch" \
-              --cxx="clang++ -arch $arch" \
-              --arch="$arch" \
-              ${cross_args[@]+"${cross_args[@]}"} \
+              --cc="clang -arch $ARCH" \
+              --cxx="clang++ -arch $ARCH" \
+              --arch="$ARCH" \
               --pkg-config-flags=--static \
               --enable-shared \
               --disable-static \
@@ -579,47 +503,39 @@ build_ffmpeg_for_arch() {
               --disable-network \
               --disable-encoder=prores,prores_aw,prores_ks,eac3,truehd,mlp,dca \
               \
-              --extra-cflags="-arch $arch -mmacosx-version-min=$MIN_OS -I$deps/include $OPTIMIZATION_FLAGS" \
-              --extra-ldflags="-arch $arch -mmacosx-version-min=$MIN_OS -L$deps/lib" \
+              --extra-cflags="-arch $ARCH -mmacosx-version-min=$MIN_OS -I$deps/include $OPTIMIZATION_FLAGS" \
+              --extra-ldflags="-arch $ARCH -mmacosx-version-min=$MIN_OS -L$deps/lib" \
               --extra-libs="-lc++"
-          echo ">>> [$arch] Configure done." )
+          echo ">>> [$ARCH] Configure done." )
     else
-        echo ">>> [$arch] Skipping configure (already configured). Use 'clean' to reconfigure."
+        echo ">>> [$ARCH] Skipping configure (already configured). Use 'clean' to reconfigure."
     fi
 
-    echo ">>> [$arch] Building FFmpeg ($JOBS threads)..."
+    echo ">>> [$ARCH] Building FFmpeg ($JOBS threads)..."
     ( cd "$build_dir" && make -j"$JOBS" )
-    echo ">>> [$arch] Installing FFmpeg..."
+    echo ">>> [$ARCH] Installing FFmpeg..."
     ( cd "$build_dir" && make install )
 }
 
 # ---- run --------------------------------------------------------------------
-for arch in "${ARCHS[@]}"; do
-    build_deps_for_arch "$arch"
-    build_ffmpeg_for_arch "$arch"
-done
+build_deps
+build_ffmpeg
 
 echo ""
-echo ">>> Creating universal dylibs..."
-ARM_LIB="$SCRIPT_DIR/ffmpeg-install-macos-arm64/lib"
-X86_LIB="$SCRIPT_DIR/ffmpeg-install-macos-x86_64/lib"
+echo ">>> Collecting dylibs..."
+LIB_DIR="$SCRIPT_DIR/ffmpeg-install-macos-$ARCH/lib"
 rm -rf "$OUTPUT_DIR/dylib"
 mkdir -p "$OUTPUT_DIR/dylib"
-# For each real arm64 dylib, lipo-merge with its x86_64 twin. Output filename is
-# the install_name basename (what dyld searches for), not the versioned filename.
-for f in "$ARM_LIB"/*.dylib; do
+# Output filename is the install_name basename (what dyld searches for), not the
+# versioned filename.
+for f in "$LIB_DIR"/*.dylib; do
     if [ -L "$f" ]; then continue; fi
     id=$(otool -D "$f" | tail -n1)
     ship_name=$(basename "$id")
-    x86_file="$X86_LIB/$(basename "$f")"
-    if [ ! -f "$x86_file" ]; then
-        echo "ERROR: x86_64 counterpart missing for $(basename "$f"): $x86_file" >&2
-        exit 1
-    fi
-    lipo -create "$f" "$x86_file" -output "$OUTPUT_DIR/dylib/$ship_name"
+    cp -p "$f" "$OUTPUT_DIR/dylib/$ship_name"
 done
 
-# Ad-hoc sign: Apple Silicon won't load dylibs without it, and lipo strips signatures.
+# Ad-hoc sign: Apple Silicon won't load unsigned dylibs.
 codesign --force --sign - "$OUTPUT_DIR/dylib/"*.dylib 2>/dev/null || true
 
 # Mirror into Blick's tree (Blick references these directly; ffpackage just produces them).
@@ -634,7 +550,7 @@ fi
 
 echo ""
 echo "=== Build complete ==="
-echo "Universal dylibs: $(ls -1 "$OUTPUT_DIR/dylib/"*.dylib 2>/dev/null | wc -l | tr -d ' ') files in $OUTPUT_DIR/dylib/"
+echo "Dylibs: $(ls -1 "$OUTPUT_DIR/dylib/"*.dylib 2>/dev/null | wc -l | tr -d ' ') files in $OUTPUT_DIR/dylib/"
 ls -lh "$OUTPUT_DIR/dylib/"
 echo ""
 echo "Arch check:"
