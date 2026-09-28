@@ -127,11 +127,13 @@ list or overriding the type there, rather than hand-editing generated files.
 ```
 
 Both verify the build is legally clean (no GPL/nonfree in `config.h`), confirm the expected shared
-libraries are present, sign them, zip them, and replace the corresponding archive in the Blick repo.
+libraries are present, sign them, zip them, and replace the corresponding archive in
+`../monorepo/blick/` (Blick and Zeiger both ship it).
 
-Windows signing uses the Dihedron certificate held on Certum's SimplySign cloud CSP -- log in via
-SimplySign Desktop first. macOS signing needs a Developer ID Application identity, and
-notarization additionally needs a `notarytool` keychain profile.
+Windows signing uses Azure Artifact Signing with the dlib and `metadata.json` in `C:\tools\azuresign`,
+the same files the monorepo builder uses -- run `az login` as the signer account first. macOS signing
+needs a Developer ID Application identity, and notarization additionally needs a `notarytool`
+keychain profile (`blick-notary`, the same one the monorepo builder uses).
 
 ## LGPL compliance
 

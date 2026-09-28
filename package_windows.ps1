@@ -5,13 +5,14 @@
   Runs AFTER build_ffmpeg.sh has produced output/dll/*.dll. Steps:
     1. Assert the build is legally clean (config.h: no GPL/nonfree, excluded encoders gone).
     2. Assert the 7 expected shared libs are present.
-    3. Authenticode-sign the DLLs with the Dihedron cert (needs an active SimplySign session).
+    3. Authenticode-sign the DLLs with Azure Artifact Signing.
     4. Verify signatures.
     5. Pack the DLLs flat into ffmpeg_windows.zip.
-    6. Back up and replace Blick's ffmpeg_windows.zip.
+    6. Back up and replace the monorepo's blick\ffmpeg_windows.zip (Blick and Zeiger ship it).
 
-  Signing note: the cert's key is on Certum's SimplySign cloud CSP. Open "SimplySign
-  Desktop" and log in first, or pass -SkipSign to produce an unsigned zip.
+  Signing note: signtool uses the same Azure dlib and metadata.json in C:\tools\azuresign as
+  the monorepo builder. Run `az login` as the signer account first, or pass -SkipSign to
+  produce an unsigned zip.
 
 .EXAMPLE
   .\package_windows.ps1                 # full pipeline (sign + replace)
@@ -20,12 +21,13 @@
 #>
 [CmdletBinding()]
 param(
-    [string]$Thumbprint  = "3BDFD0193A1A2497775E1E1AA54048FA2EA5285A",   # CN=Dihedron Software GmbH
-    [string]$TimestampUrl = "http://time.certum.pl",                      # Certum RFC3161 TSA
+    [string]$SignDlib     = "C:\tools\azuresign\client\bin\x64\Azure.CodeSigning.Dlib.dll",
+    [string]$SignMetadata = "C:\tools\azuresign\metadata.json",
+    [string]$TimestampUrl = "http://timestamp.acs.microsoft.com",
     [string]$DllDir      = "$PSScriptRoot\output\dll",
     [string]$ConfigH     = "$PSScriptRoot\ffmpeg\config.h",
     [string]$ConfigComponents = "$PSScriptRoot\ffmpeg\config_components.h",
-    [string]$TargetZip   = "$PSScriptRoot\..\blick\ffmpeg_windows.zip",
+    [string]$TargetZip   = "$PSScriptRoot\..\monorepo\blick\ffmpeg_windows.zip",
     [switch]$SkipSign,
     [switch]$NoReplace
 )
@@ -86,13 +88,13 @@ Ok ("{0} DLLs present ({1} expected)." -f $dlls.Count, $expected.Count)
 if ($SkipSign) {
     Write-Host "`n[3/6] Signing SKIPPED (-SkipSign)" -ForegroundColor Yellow
 } else {
-    Write-Host "`n[3/6] Signing with cert $Thumbprint" -ForegroundColor Cyan
+    Write-Host "`n[3/6] Signing with Azure Artifact Signing" -ForegroundColor Cyan
     $signtool = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin\*\x64\signtool.exe" -EA SilentlyContinue |
                 Sort-Object FullName -Descending | Select-Object -First 1
     if (-not $signtool) { Fail "signtool.exe not found (install Windows SDK signing tools)." }
-    & $signtool.FullName sign /sha1 $Thumbprint /fd SHA256 /tr $TimestampUrl /td SHA256 /v $dlls.FullName
+    & $signtool.FullName sign /fd SHA256 /tr $TimestampUrl /td SHA256 /dlib $SignDlib /dmdf $SignMetadata /v $dlls.FullName
     if ($LASTEXITCODE -ne 0) {
-        Fail "signtool failed (exit $LASTEXITCODE). Is SimplySign Desktop running and logged in?"
+        Fail "signtool failed (exit $LASTEXITCODE). Run az login as the signer account; the signer also needs $SignDlib and $SignMetadata."
     }
     Ok "Signed $($dlls.Count) DLLs."
 

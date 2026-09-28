@@ -538,14 +538,14 @@ done
 # Ad-hoc sign: Apple Silicon won't load unsigned dylibs.
 codesign --force --sign - "$OUTPUT_DIR/dylib/"*.dylib 2>/dev/null || true
 
-# Mirror into Blick's tree (Blick references these directly; ffpackage just produces them).
-BLICK_MACOS_LIB="$SCRIPT_DIR/../blick/lib/ffmpeg/macos"
-if [ -d "$SCRIPT_DIR/../blick/lib/ffmpeg" ]; then
-    rm -rf "$BLICK_MACOS_LIB"
-    mkdir -p "$BLICK_MACOS_LIB"
-    cp -p "$OUTPUT_DIR/dylib/"*.dylib "$BLICK_MACOS_LIB/"
-    codesign --force --sign - "$BLICK_MACOS_LIB/"*.dylib 2>/dev/null || true
-    echo ">>> Synced into $BLICK_MACOS_LIB"
+# Mirror into the monorepo's lib/ffmpeg (Blick and Zeiger reference these directly; ffpackage just produces them).
+MONOREPO_MACOS_LIB="$SCRIPT_DIR/../monorepo/lib/ffmpeg/macos"
+if [ -d "$SCRIPT_DIR/../monorepo/lib/ffmpeg" ]; then
+    rm -rf "$MONOREPO_MACOS_LIB"
+    mkdir -p "$MONOREPO_MACOS_LIB"
+    cp -p "$OUTPUT_DIR/dylib/"*.dylib "$MONOREPO_MACOS_LIB/"
+    codesign --force --sign - "$MONOREPO_MACOS_LIB/"*.dylib 2>/dev/null || true
+    echo ">>> Synced into $MONOREPO_MACOS_LIB"
 fi
 
 echo ""

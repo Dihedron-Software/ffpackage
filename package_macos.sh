@@ -11,7 +11,7 @@
 #   4. Verify each signature (strict, Developer ID authority, timestamp present).
 #   5. Pack the signed dylibs flat into ffmpeg_macos.zip.
 #   6. (optional, --notarize) Submit the zip to Apple via notarytool and wait.
-#   7. Back up and replace Blick's ffmpeg_macos.zip.
+#   7. Back up and replace the monorepo's blick/ffmpeg_macos.zip (Blick and Zeiger ship it).
 #
 # Signing identity: pass --identity "Developer ID Application: NAME (TEAMID)" or set
 # MACOS_SIGN_IDENTITY; if unset, auto-detects a single Developer ID Application identity.
@@ -20,7 +20,7 @@
 #
 # Usage:
 #   ./package_macos.sh                              # verify, Developer ID sign, zip, replace
-#   ./package_macos.sh --notarize --profile blick   # also notarize the zip
+#   ./package_macos.sh --notarize --profile blick-notary   # also notarize the zip
 #   ./package_macos.sh --skip-sign                  # zip + replace as-is (dev only)
 #   ./package_macos.sh --no-replace                 # sign + zip, do not touch Blick
 
@@ -28,7 +28,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 DYLIB_DIR="$SCRIPT_DIR/output-macos/dylib"
-TARGET_ZIP="$SCRIPT_DIR/../blick/ffmpeg_macos.zip"
+TARGET_ZIP="$SCRIPT_DIR/../monorepo/blick/ffmpeg_macos.zip"
 STAGE_ZIP="$SCRIPT_DIR/output-macos/ffmpeg_macos.zip"
 CONFIG_DIR="$SCRIPT_DIR/build-macos-arm64"
 
