@@ -13,3 +13,8 @@ ffmpeg-install-macos-*/
 output-macos/
 src-cache-macos/
 nv-codec-headers/
+
+# LibRaw build artifacts (libraw/build_libraw*.ps1/.sh)
+libraw/build/
+libraw/build-macos/
+libraw/output/*.a

@@ -8,6 +8,9 @@ it pins the exact FFmpeg commit (as a submodule) and contains the scripts that c
 it, which is what LGPL 2.1 section 0 means by "the scripts used to control compilation and
 installation of the library". See [LGPL compliance](#lgpl-compliance) below.
 
+[`libraw/`](libraw/README.md) does the same for LibRaw, the raw photo decoder Zeiger links
+statically. LibRaw is used under the CDDL 1.0, and everything about it lives in that folder.
+
 ## Clone
 
 The FFmpeg source is a submodule pinned to the exact shipped commit:
@@ -171,4 +174,5 @@ control compilation to be provided as part of the corresponding source, which me
 to be free to actually run and modify them in order to rebuild the libraries.
 
 The `ffmpeg/` and `odin-c-bindgen/` submodules are covered by their own upstream licenses, not by
-this one.
+this one. The LibRaw source and the LibRaw bindings in `libraw/` are CDDL 1.0, see
+[libraw/README.md](libraw/README.md).

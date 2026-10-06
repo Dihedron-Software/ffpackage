@@ -1,0 +1,24 @@
+// LibRaw 0.22.2 Odin bindings generator config.
+// Run through generate_bindings.ps1, which fixes up the foreign import and adds the license header.
+
+inputs = [
+    "../build/LibRaw-0.22.2/libraw/libraw.h",
+    "../build/LibRaw-0.22.2/libraw/libraw_types.h",
+    "../build/LibRaw-0.22.2/libraw/libraw_const.h",
+    "../build/LibRaw-0.22.2/libraw/libraw_version.h"
+]
+
+// NOTE: clang_include_paths resolves relative to CWD (generate_bindings.ps1 runs from libraw/).
+clang_include_paths = [
+    "build/LibRaw-0.22.2"
+]
+
+// Same defines as build_libraw.ps1
+clang_defines = {
+    "WIN32"         = "1"
+    "LIBRAW_NODLL"  = "1"
+}
+
+output_folder = "../output"
+import_lib = "__PLACEHOLDER__.lib"
+package_name = "libraw"

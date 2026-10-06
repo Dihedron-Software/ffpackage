@@ -31,6 +31,9 @@ The MIT license above covers only the files original to this repository:
     package_macos.sh, generate_bindings.ps1, bindgen-config/,
     hand-written/, windows-deps.lock, README.md
 
+    libraw/build_libraw.ps1, libraw/build_libraw_macos.sh,
+    libraw/generate_bindings.ps1, libraw/bindgen-config/, libraw/README.md
+
 It does NOT cover:
 
   * ffmpeg/ (git submodule) -- FFmpeg, licensed LGPL-2.1-or-later under its own
@@ -48,3 +51,12 @@ It does NOT cover:
     parameters, data structure layouts and accessors from a library's headers is
     unrestricted regardless of whether it is legally a derivative work, so these
     are distributed under the MIT terms above.
+
+  * libraw/source/ -- the unmodified upstream LibRaw source tarball. LibRaw is
+    offered under LGPL-2.1 or CDDL-1.0; Dihedron Software uses it under the
+    CDDL 1.0. See LICENSE.CDDL and COPYRIGHT inside the tarball.
+
+  * The generated Odin bindings in libraw/output/, which are produced from
+    LibRaw's headers. The CDDL has no equivalent of LGPL-2.1 section 5, so these
+    are distributed under the CDDL 1.0, the same as LibRaw. See
+    libraw/output/LICENSE.CDDL and libraw/output/COPYRIGHT.
