@@ -45,11 +45,12 @@ JOBS=$(sysctl -n hw.logicalcpu 2>/dev/null || echo 4)
 export SOURCE_DIR OBJECT_DIR OPTIMIZATION_FLAGS MIN_OS ARCH
 
 echo ">>> Compiling ($MODE, $JOBS jobs)..."
+# The file goes to sh as $1, because BSD xargs limits a command that -I builds to 255 bytes.
 find "$SOURCE_DIR/src" -name '*.cpp' ! -name '*_ph.cpp' -print0 |
-    xargs -0 -P "$JOBS" -I{} sh -c '
-        name=$(basename "{}" .cpp)
+    xargs -0 -P "$JOBS" -n 1 sh -c '
+        name=$(basename "$1" .cpp)
         clang++ -c -arch "$ARCH" -mmacosx-version-min="$MIN_OS" $OPTIMIZATION_FLAGS -w \
-            -DLIBRAW_NODLL -DLIBRAW_BUILDLIB -I"$SOURCE_DIR" "{}" -o "$OBJECT_DIR/$name.o"'
+            -DLIBRAW_NODLL -DLIBRAW_BUILDLIB -I"$SOURCE_DIR" "$1" -o "$OBJECT_DIR/$name.o"' sh
 
 rm -f "$OUTPUT_DIR/libraw.a"
 ar rcs "$OUTPUT_DIR/libraw.a" "$OBJECT_DIR"/*.o
