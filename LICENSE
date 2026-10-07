@@ -52,9 +52,18 @@ It does NOT cover:
     unrestricted regardless of whether it is legally a derivative work, so these
     are distributed under the MIT terms above.
 
-  * libraw/source/ -- the unmodified upstream LibRaw source tarball. LibRaw is
-    offered under LGPL-2.1 or CDDL-1.0; Dihedron Software uses it under the
-    CDDL 1.0. See LICENSE.CDDL and COPYRIGHT inside the tarball.
+  * libraw/source/ -- the unmodified upstream source tarballs:
+      - LibRaw, offered under LGPL-2.1 or CDDL-1.0; Dihedron Software uses it
+        under the CDDL 1.0. See LICENSE.CDDL and COPYRIGHT inside the tarball.
+      - zlib, licensed under the zlib license. See LICENSE inside the tarball.
+      - libjpeg-turbo, licensed under the IJG license and the BSD-3-Clause
+        license. See LICENSE.md and README.ijg inside the tarball.
+    zlib and libjpeg-turbo are compiled into the LibRaw library for deflate
+    and lossy DNG files.
+
+  * libraw/output/LICENSE.CDDL, COPYRIGHT, LICENSE.zlib,
+    LICENSE.libjpeg-turbo.md and README.ijg -- copied unmodified from the
+    tarballs above by the build.
 
   * The generated Odin bindings in libraw/output/, which are produced from
     LibRaw's headers. The CDDL has no equivalent of LGPL-2.1 section 5, so these
