@@ -444,7 +444,7 @@ build_ffmpeg() {
           echo ">>> [$ARCH] Configuring FFmpeg..."
           # === Excluded codecs  ===
           # today (H.264 is our only encode codec).
-          #   GPL (copyright, would force Blick's whole binary to GPL, NEVER TOUCH THESE):
+          #   GPL (copyright, would force the whole linking program to GPL, NEVER TOUCH THESE):
           #     libx264 libx265 libxvid libxavs2 libdavs2 libvidstab librubberband frei0r
           #     (postproc is GPL too but has no --disable in FFmpeg 8.0 — only builds under --enable-gpl)
           #   Nonfree (binary would become legally unredistributable):
@@ -537,16 +537,6 @@ done
 
 # Ad-hoc sign: Apple Silicon won't load unsigned dylibs.
 codesign --force --sign - "$OUTPUT_DIR/dylib/"*.dylib 2>/dev/null || true
-
-# Mirror into the monorepo's lib/ffmpeg (Blick and Zeiger reference these directly; ffpackage just produces them).
-MONOREPO_MACOS_LIB="$SCRIPT_DIR/../monorepo/lib/ffmpeg/macos"
-if [ -d "$SCRIPT_DIR/../monorepo/lib/ffmpeg" ]; then
-    rm -rf "$MONOREPO_MACOS_LIB"
-    mkdir -p "$MONOREPO_MACOS_LIB"
-    cp -p "$OUTPUT_DIR/dylib/"*.dylib "$MONOREPO_MACOS_LIB/"
-    codesign --force --sign - "$MONOREPO_MACOS_LIB/"*.dylib 2>/dev/null || true
-    echo ">>> Synced into $MONOREPO_MACOS_LIB"
-fi
 
 echo ""
 echo "=== Build complete ==="

@@ -50,9 +50,9 @@ The build always uses MSVC 14.44 (VS 2022 17.14, "MSVC v143"), set in `$toolset`
 script. Microsoft supports a library from an older toolset with a newer linker, but not the opposite:
 a library from a newer toolset can call STL functions that an older `libcpmt.lib` does not have.
 Odin links with the first Visual Studio that it finds, so the library must not be newer than the
-oldest toolset on any machine that links Zeiger (developers and CI).
+oldest toolset on any machine that links it.
 
-- Raise `$toolset` only when every machine that links Zeiger has the newer toolset.
+- Raise `$toolset` only when every machine that links the library has the newer toolset.
 - Visual Studio 2026 can install 14.44: add the "MSVC v143 - VS 2022 C++ x64/x86 build tools"
   component in the Visual Studio Installer.
 
@@ -82,9 +82,3 @@ the C headers (`libraw_init`, `libraw_data_t`), the same as the FFmpeg bindings.
 The struct layouts in `libraw_types.h` do not depend on build defines, so one set of bindings serves
 both platforms. Verified on Windows: all 45 struct sizes and every `libraw_data_t` field offset match
 MSVC. `libraw_data_t` is about 380 KB, so only ever hold it through the pointer `libraw_init` returns.
-
-## Packaging into the monorepo
-
-Copy `output/` into the monorepo as `lib/libraw/`: the four `.odin` files, `libraw.lib`, `libraw.a`,
-`LICENSE.CDDL`, `COPYRIGHT`, `LICENSE.zlib`, `LICENSE.libjpeg-turbo.md` and `README.ijg`. Never edit
-the bindings there by hand; change the generator here.

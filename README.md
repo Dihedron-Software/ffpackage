@@ -36,8 +36,6 @@ output-macos/    macOS
   dylib/         *.dylib (arm64, @rpath install names, min-OS 13.0)
 ```
 
-Drop `output/` into Blick's source as `lib/ffmpeg/`.
-
 ## Building FFmpeg -- Windows
 
 Requires [MSYS2](https://www.msys2.org/). Open the **MSYS2 CLANG64** shell (not MINGW64 -- the
@@ -68,9 +66,6 @@ build verifies against it and **aborts on any mismatch**. When a bump is intenti
 ```bash
 ./build_ffmpeg.sh --relock        # rewrite the lock, then rebuild
 ```
-
-Then regenerate `THIRD-PARTY-LICENSES.txt` in the Blick repo (`update_licenses.sh`) so the shipped
-notices match the new versions.
 
 macOS pins every dependency *version* inline in `build_ffmpeg_macos.sh`, so there is nothing to
 resolve and no version drift to catch. What it does need is *content* verification, since it
@@ -123,29 +118,11 @@ library, also update the `$headerToLib` mapping in `generate_bindings.ps1`.
 If the bindgen emits declarations that don't compile, prefer adding them to the config's `remove`
 list or overriding the type there, rather than hand-editing generated files.
 
-## Packaging into Blick
-
-```powershell
-.\package_windows.ps1             # -SkipSign to skip Authenticode signing
-```
-```bash
-./package_macos.sh                # --notarize to submit to Apple
-```
-
-Both verify the build is legally clean (no GPL/nonfree in `config.h`), confirm the expected shared
-libraries are present, sign them, zip them, and replace the corresponding archive in
-`../monorepo/blick/` (Blick and Zeiger both ship it).
-
-Windows signing uses Azure Artifact Signing with the dlib and `metadata.json` in `C:\tools\azuresign`,
-the same files the monorepo builder uses -- run `az login` as the signer account first. macOS signing
-needs a Developer ID Application identity, and notarization additionally needs a `notarytool`
-keychain profile (`blick-notary`, the same one the monorepo builder uses).
-
 ## LGPL compliance
 
 FFmpeg is configured **without** `--enable-gpl` and **without** `--enable-nonfree`, so the output is
-LGPL 2.1+ and may be linked by closed-source software. `package_windows.ps1` and `package_macos.sh`
-both assert this against the generated `config.h` rather than trusting the configure line.
+LGPL 2.1+ and may be linked by closed-source software. The generated `config.h` confirms it:
+`CONFIG_GPL` and `CONFIG_NONFREE` are both 0.
 
 The libraries are shipped as separate shared library files and are not statically linked into Blick,
 so they can be replaced with a user's own rebuild. On macOS, Blick is signed with
@@ -171,7 +148,7 @@ Full license texts for every bundled component ship with Blick and are viewable 
 
 ## License
 
-The build, packaging and binding-generation scripts in this repository are MIT licensed -- see
+The build and binding-generation scripts in this repository are MIT licensed -- see
 [LICENSE](LICENSE). They are deliberately permissive because LGPL 2.1 requires the scripts that
 control compilation to be provided as part of the corresponding source, which means recipients have
 to be free to actually run and modify them in order to rebuild the libraries.

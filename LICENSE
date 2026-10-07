@@ -27,9 +27,8 @@ SCOPE OF THIS LICENSE
 
 The MIT license above covers only the files original to this repository:
 
-    build_ffmpeg.sh, build_ffmpeg_macos.sh, package_windows.ps1,
-    package_macos.sh, generate_bindings.ps1, bindgen-config/,
-    hand-written/, windows-deps.lock, README.md
+    build_ffmpeg.sh, build_ffmpeg_macos.sh, generate_bindings.ps1,
+    bindgen-config/, hand-written/, windows-deps.lock, README.md
 
     libraw/build_libraw.ps1, libraw/build_libraw_macos.sh,
     libraw/generate_bindings.ps1, libraw/bindgen-config/, libraw/README.md

@@ -110,7 +110,6 @@ else
         echo "ERROR: $drift dependency mismatch(es). The published source no longer corresponds"
         echo "       to what this build would produce. Either restore the locked versions, or"
         echo "       accept the bump with: ./build_ffmpeg.sh --relock"
-        echo "       (then update THIRD-PARTY-LICENSES.txt in the blick repo)"
         exit 1
     fi
     echo "    all $(grep -c '^mingw-w64' "$LOCKFILE") packages match, ffmpeg at $actual_commit"
@@ -152,7 +151,7 @@ if [ ! -f "config.mak" ]; then
     export PKG_CONFIG_PATH="/clang64/lib/pkgconfig:/clang64/share/pkgconfig:${PKG_CONFIG_PATH:-}"
     # === Excluded codecs ===
     # today (H.264 is our only encode codec).
-    #   GPL (copyright, would force Blick's whole binary to GPL, NEVER TOUCH THESE):
+    #   GPL (copyright, would force the whole linking program to GPL, NEVER TOUCH THESE):
     #     libx264 libx265 libxvid libxavs2 libdavs2 libvidstab librubberband frei0r
     #     (postproc is GPL too but has no --disable in FFmpeg 8.0 — only builds under --enable-gpl)
     #   Nonfree (binary would become legally unredistributable):

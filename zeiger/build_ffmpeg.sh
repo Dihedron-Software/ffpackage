@@ -30,7 +30,7 @@ if [ "${1:-}" = "clean" ]; then
     exit 0
 fi
 
-# Zeiger's IMAGE_EXTENSIONS and image_encode decide these lists. Anything else stays out,
+# The formats Zeiger opens and saves decide these lists. Anything else stays out,
 # in particular every audio codec, H.264, and all hardware video APIs.
 DECODERS=(apng bmp dds exr gif hdr hevc jpeg2000 jpegls libdav1d mjpeg pam pbm pcx pfm pgm phm png ppm
           psd qoi sgi sunrast targa tiff wbmp webp xbm xpm xwd)
@@ -224,12 +224,10 @@ else
         fi
     done
 
-    # Apple Silicon loads only signed code. The monorepo builder signs them with Developer ID later.
+    # Apple Silicon loads only signed code.
     codesign --force --sign - "$OUTPUT_DIR/"*.dylib
 fi
 
 echo ""
 echo "=== Done ==="
 ls -l "$OUTPUT_DIR"
-echo ""
-echo "Next: in the monorepo, package them for Zeiger (see zeiger/README.md)."

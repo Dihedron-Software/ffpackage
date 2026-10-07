@@ -6,8 +6,7 @@ image viewer needs:
 
 - **Libraries:** `avcodec`, `avformat`, `avutil` and `swscale`. No `avdevice`, `avfilter` or
   `swresample`.
-- **Decoders:** the image codecs in Zeiger's `IMAGE_EXTENSIONS`, `libdav1d` for AVIF and `hevc` for
-  HEIC.
+- **Decoders:** the image codecs Zeiger opens, `libdav1d` for AVIF and `hevc` for HEIC.
 - **Encoders:** `png`, `mjpeg`, `bmp` and `tiff`, for Save.
 - **Demuxers and parsers:** `image2`, the image pipe demuxers, `gif`, `apng` and `mov` (for HEIF and
   AVIF), with the parsers of those codecs.
@@ -15,7 +14,7 @@ image viewer needs:
   everything else, for example iconv, Media Foundation and VideoToolbox.
 
 No audio codec, no H.264, no video encoder and no hardware video API is in this build. The lists are
-at the top of `build_ffmpeg.sh`; change them together with Zeiger's `IMAGE_EXTENSIONS`.
+at the top of `build_ffmpeg.sh`.
 
 Blick's build (`../build_ffmpeg.sh`, `../build_ffmpeg_macos.sh`) is separate and does not change.
 
@@ -54,10 +53,5 @@ be linked statically.
 
 - the libraries (`avcodec-62.dll` ... or `libavcodec.62.dylib` ..., named after their install names
   on macOS, ad-hoc signed)
-- `config.h` and `config_components.h`, so that the packaging step can check the license posture and
-  the component list
-
-## Packaging into Zeiger
-
-The monorepo builder verifies, signs and zips these libraries into `zeiger/ffmpeg_windows.zip` or
-`zeiger/ffmpeg_macos.zip`, with the same signing setup as Zeiger itself. See the monorepo.
+- `config.h` and `config_components.h`, which show the license posture (`CONFIG_GPL` and
+  `CONFIG_NONFREE` are 0) and the component list
