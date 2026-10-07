@@ -48,9 +48,11 @@ mkdir -p "$OBJECT_DIR" "$ZLIB_OBJECT_DIR" "$OUTPUT_DIR"
 
 JOBS=$(sysctl -n hw.logicalcpu 2>/dev/null || echo 4)
 
+# Without zlib's ./configure, the two defines it sets on macOS go on the command line.
 echo ">>> Compiling zlib $ZLIB_VERSION..."
 for FILE in "$ZLIB_DIR"/*.c; do
-    clang -c -arch "$ARCH" -mmacosx-version-min="$MIN_OS" $OPTIMIZATION_FLAGS -w "$FILE" -o "$ZLIB_OBJECT_DIR/$(basename "$FILE" .c).o"
+    clang -c -arch "$ARCH" -mmacosx-version-min="$MIN_OS" $OPTIMIZATION_FLAGS -w -DHAVE_UNISTD_H -DHAVE_STDARG_H \
+        "$FILE" -o "$ZLIB_OBJECT_DIR/$(basename "$FILE" .c).o"
 done
 
 # Only the static libjpeg library, without SIMD, the same as the Windows build. Lossy DNG is rare.
