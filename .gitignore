@@ -14,6 +14,10 @@ output-macos/
 src-cache-macos/
 nv-codec-headers/
 
+# Zeiger's FFmpeg build artifacts (zeiger/build_ffmpeg.sh)
+zeiger/build-*/
+zeiger/output-*/
+
 # LibRaw build artifacts (libraw/build_libraw*.ps1/.sh)
 libraw/build/
 libraw/build-macos/

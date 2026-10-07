@@ -11,6 +11,9 @@ installation of the library". See [LGPL compliance](#lgpl-compliance) below.
 [`libraw/`](libraw/README.md) does the same for LibRaw, the raw photo decoder Zeiger links
 statically. LibRaw is used under the CDDL 1.0, and everything about it lives in that folder.
 
+[`zeiger/`](zeiger/README.md) builds Zeiger's own FFmpeg libraries from the same FFmpeg commit, with
+only the image codecs an image viewer needs. Blick's build below does not change.
+
 ## Clone
 
 The FFmpeg source is a submodule pinned to the exact shipped commit:

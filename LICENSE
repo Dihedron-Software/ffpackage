@@ -34,6 +34,8 @@ The MIT license above covers only the files original to this repository:
     libraw/build_libraw.ps1, libraw/build_libraw_macos.sh,
     libraw/generate_bindings.ps1, libraw/bindgen-config/, libraw/README.md
 
+    zeiger/build_ffmpeg.sh, zeiger/README.md
+
 It does NOT cover:
 
   * ffmpeg/ (git submodule) -- FFmpeg, licensed LGPL-2.1-or-later under its own
