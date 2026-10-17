@@ -1,6 +1,6 @@
 # LibRaw
 
-Builds [LibRaw](https://www.libraw.org) 0.22.2 as a static library for Windows and macOS, and
+Builds [LibRaw](https://www.libraw.org) 0.22.2 as a static library for Windows, macOS and Linux, and
 generates the Odin bindings Zeiger uses against it.
 
 This folder is also the **corresponding source** for the LibRaw code shipped inside Zeiger: the
@@ -66,6 +66,18 @@ Requires the Xcode Command Line Tools and CMake (`brew install cmake`).
 
 Produces `output/libraw.a`: arm64, min-OS macOS 13.0, no OpenMP, with zlib and libjpeg merged in
 (`libtool -static`). Odin links it with `system:c++`.
+
+## Building -- Linux
+
+Requires clang, CMake and binutils (`sudo apt install clang cmake binutils` on Debian/Ubuntu).
+
+```bash
+./build_libraw_linux.sh      # also: debug | clean
+```
+
+Produces `output/linux/libraw.a`: x86_64, position independent (`-fPIC`), no OpenMP, with zlib and
+libjpeg merged in (`ar`). Odin links it with `system:stdc++`. It sits in its own folder because the
+macOS library has the same name.
 
 ## Generating the Odin bindings
 

@@ -37,10 +37,10 @@ Pop-Location
 if ($bindgenExit -ne 0) { Write-Error "bindgen failed with exit code $bindgenExit"; exit 1 }
 
 # --- Post-process: foreign import and license header ---
-# The static library sits next to the bindings: libraw.lib on Windows, libraw.a on macOS.
-# LibRaw is C++, so macOS also links libc++. On Windows the MSVC objects pull in the C++ runtime themselves.
+# The static library sits next to the bindings: libraw.lib on Windows, libraw.a on macOS, linux/libraw.a on Linux.
+# LibRaw is C++, so macOS also links libc++ and Linux libstdc++. On Windows the MSVC objects pull in the C++ runtime themselves.
 $placeholderPattern = 'foreign import lib "__PLACEHOLDER__\.lib"\r?\n_ :: lib'
-$replacement = "when ODIN_OS == .Windows {`r`n    foreign import lib `"libraw.lib`"`r`n} else when ODIN_OS == .Darwin {`r`n    foreign import lib { `"libraw.a`", `"system:c++`" }`r`n}"
+$replacement = "when ODIN_OS == .Windows {`r`n    foreign import lib `"libraw.lib`"`r`n} else when ODIN_OS == .Darwin {`r`n    foreign import lib { `"libraw.a`", `"system:c++`" }`r`n} else when ODIN_OS == .Linux {`r`n    foreign import lib { `"linux/libraw.a`", `"system:stdc++`" }`r`n}"
 
 $header = @"
 // Odin bindings for LibRaw $version, generated from the LibRaw headers by

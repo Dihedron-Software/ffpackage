@@ -33,6 +33,13 @@ when they are missing):
 ./zeiger/build_ffmpeg.sh          # also: clean
 ```
 
+Linux, in a terminal (x86_64). The script does not install anything; on Debian/Ubuntu the tools are:
+
+```bash
+sudo apt install clang meson ninja-build nasm pkg-config zlib1g-dev
+./zeiger/build_ffmpeg.sh          # also: clean
+```
+
 The script exports the submodule commit into `zeiger/build-<platform>/ffmpeg`, because Blick's
 Windows build configures inside `ffmpeg/` and FFmpeg then refuses an out-of-tree build. It reconfigures
 only when the configure arguments change.
@@ -43,15 +50,18 @@ Dependency versions:
   Blick's build.
 - **macOS:** dav1d 1.5.1 is built from the tarball in `../src-cache-macos/`, checked against
   `../macos-deps.sha256`, the same as Blick's build.
+- **Linux:** the same dav1d 1.5.1 tarball, cached in `../src-cache-linux/` and checked against the
+  same hash in `../macos-deps.sha256`. zlib is the system's, as on macOS.
 
-The script stops when a library needs a DLL or dylib that Zeiger doesn't ship. Every dependency must
-be linked statically.
+The script stops when a library needs a DLL, dylib or shared object that Zeiger doesn't ship. Every
+dependency must be linked statically; on Linux only glibc and zlib may remain.
 
 ## Output
 
-`zeiger/output-windows/` or `zeiger/output-macos/`:
+`zeiger/output-windows/`, `zeiger/output-macos/` or `zeiger/output-linux/`:
 
-- the libraries (`avcodec-62.dll` ... or `libavcodec.62.dylib` ..., named after their install names
-  on macOS, ad-hoc signed)
+- the libraries (`avcodec-62.dll` ..., `libavcodec.62.dylib` ... or `libavcodec.so.62` ..., named
+  after their install names on macOS, ad-hoc signed, and after their sonames on Linux, with an
+  `$ORIGIN` rpath so they find each other)
 - `config.h` and `config_components.h`, which show the license posture (`CONFIG_GPL` and
   `CONFIG_NONFREE` are 0) and the component list

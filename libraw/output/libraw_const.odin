@@ -27,6 +27,8 @@ when ODIN_OS == .Windows {
     foreign import lib "libraw.lib"
 } else when ODIN_OS == .Darwin {
     foreign import lib { "libraw.a", "system:c++" }
+} else when ODIN_OS == .Linux {
+    foreign import lib { "linux/libraw.a", "system:stdc++" }
 }
 
 LIBRAW_DEFAULT_ADJUST_MAXIMUM_THRESHOLD  :: 0.75

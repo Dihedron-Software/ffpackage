@@ -4,6 +4,7 @@
 # It uses the same FFmpeg commit as Blick (the ffmpeg submodule), but it never touches Blick's build.
 #
 # Windows: run it in the MSYS2 CLANG64 shell. macOS: run it in a terminal (arm64, min-OS 13.0).
+# Linux: run it in a terminal (x86_64; needs clang, meson, ninja, nasm, pkg-config and the zlib headers).
 #
 # Usage: ./zeiger/build_ffmpeg.sh [clean]
 
@@ -15,6 +16,7 @@ FFMPEG_SRC="$ROOT_DIR/ffmpeg"
 
 case "$(uname -s)" in
     Darwin)       PLATFORM=macos ;;
+    Linux)        PLATFORM=linux ;;
     MINGW*|MSYS*) PLATFORM=windows ;;
     *) echo "Unsupported platform: $(uname -s)" >&2; exit 1 ;;
 esac
@@ -98,45 +100,78 @@ if [ "$PLATFORM" = "windows" ]; then
     )
 else
     DAV1D_VERSION=1.5.1 # the same as Blick's macOS build
-    MIN_OS="13.0"
     DEPS_DIR="$BUILD_DIR/deps"
 
-    for tool in meson ninja nasm pkg-config; do
-        if ! command -v "$tool" >/dev/null 2>&1; then
-            brew install "$tool"
+    if [ "$PLATFORM" = "macos" ]; then
+        MIN_OS="13.0"
+        DEPS_CC="clang -arch arm64 -mmacosx-version-min=$MIN_OS"
+        sha256_check() { shasum -a 256 -c -; }
+
+        for tool in meson ninja nasm pkg-config; do
+            if ! command -v "$tool" >/dev/null 2>&1; then
+                brew install "$tool"
+            fi
+        done
+    else
+        DEPS_CC="clang"
+        sha256_check() { sha256sum -c -; }
+
+        # No package manager here: name what is missing and stop.
+        missing=()
+        for tool in clang meson ninja nasm pkg-config; do
+            if ! command -v "$tool" >/dev/null 2>&1; then
+                missing+=("$tool")
+            fi
+        done
+        if [ ${#missing[@]} -ne 0 ]; then
+            echo "ERROR: missing build tools: ${missing[*]}" >&2
+            echo "       Debian/Ubuntu: sudo apt install clang meson ninja-build nasm pkg-config zlib1g-dev" >&2
+            exit 1
         fi
-    done
+    fi
 
     if [ ! -f "$DEPS_DIR/lib/libdav1d.a" ]; then
-        # The tarball cache and macos-deps.sha256 are shared with Blick's build.
+        # The tarball is the same source on every platform, so macos-deps.sha256 verifies it on Linux too.
         ARCHIVE="dav1d-$DAV1D_VERSION.tar.gz"
-        CACHE="$ROOT_DIR/src-cache-macos"
+        CACHE="$ROOT_DIR/src-cache-$PLATFORM"
         mkdir -p "$CACHE"
         if [ ! -f "$CACHE/$ARCHIVE" ]; then
             curl -fL --retry 3 -o "$CACHE/$ARCHIVE.tmp" "https://code.videolan.org/videolan/dav1d/-/archive/$DAV1D_VERSION/$ARCHIVE"
             mv "$CACHE/$ARCHIVE.tmp" "$CACHE/$ARCHIVE"
         fi
-        (cd "$CACHE" && grep "  $ARCHIVE\$" "$ROOT_DIR/macos-deps.sha256" | shasum -a 256 -c -)
+        (cd "$CACHE" && grep "  $ARCHIVE\$" "$ROOT_DIR/macos-deps.sha256" | sha256_check)
 
         echo ">>> Building dav1d $DAV1D_VERSION..."
         rm -rf "$BUILD_DIR/dav1d-$DAV1D_VERSION"
         tar -xzf "$CACHE/$ARCHIVE" -C "$BUILD_DIR"
         (cd "$BUILD_DIR/dav1d-$DAV1D_VERSION"
-         CC="clang -arch arm64 -mmacosx-version-min=$MIN_OS" meson setup _build --prefix="$DEPS_DIR" --libdir=lib \
+         CC="$DEPS_CC" meson setup _build --prefix="$DEPS_DIR" --libdir=lib \
              --buildtype=release --default-library=static -Db_staticpic=true -Denable_tools=false -Denable_tests=false
          ninja -C _build install)
     fi
 
-    # Only our own prefix, so pkg-config can't link a Homebrew dylib into the libraries.
+    # Only our own prefix, so pkg-config can't link a Homebrew dylib or a distro library into the libraries.
     export PKG_CONFIG_LIBDIR="$DEPS_DIR/lib/pkgconfig"
-    PLATFORM_FLAGS=(
-        --cc="clang -arch arm64"
-        --arch=arm64
-        --install-name-dir=@rpath
-        --enable-pthreads
-        --extra-cflags="-arch arm64 -mmacosx-version-min=$MIN_OS -I$DEPS_DIR/include"
-        --extra-ldflags="-arch arm64 -mmacosx-version-min=$MIN_OS -L$DEPS_DIR/lib"
-    )
+    if [ "$PLATFORM" = "macos" ]; then
+        PLATFORM_FLAGS=(
+            --cc="clang -arch arm64"
+            --arch=arm64
+            --install-name-dir=@rpath
+            --enable-pthreads
+            --extra-cflags="-arch arm64 -mmacosx-version-min=$MIN_OS -I$DEPS_DIR/include"
+            --extra-ldflags="-arch arm64 -mmacosx-version-min=$MIN_OS -L$DEPS_DIR/lib"
+        )
+    else
+        # The libraries find each other next to themselves: a literal $ORIGIN rpath. It reaches the linker through a
+        # response file, because configure evals its flags and make expands them again, and each of those eats the $.
+        printf '%s\n' '-rpath=$ORIGIN' > "$BUILD_DIR/rpath.rsp"
+        PLATFORM_FLAGS=(
+            --cc=clang
+            --enable-pthreads
+            --extra-cflags="-I$DEPS_DIR/include"
+            --extra-ldflags="-L$DEPS_DIR/lib -Wl,@$BUILD_DIR/rpath.rsp"
+        )
+    fi
 fi
 
 # ---- source ------------------------------------------------------------------
@@ -207,7 +242,7 @@ if [ "$PLATFORM" = "windows" ]; then
             exit 1
         fi
     done
-else
+elif [ "$PLATFORM" = "macos" ]; then
     # Name each dylib after its install name, which is the name dyld searches for.
     for library in "$INSTALL_DIR/lib/"*.dylib; do
         if [ -L "$library" ]; then
@@ -226,6 +261,30 @@ else
 
     # Apple Silicon loads only signed code.
     codesign --force --sign - "$OUTPUT_DIR/"*.dylib
+else
+    # Name each library after its soname, which is the name the loader searches for.
+    for library in "$INSTALL_DIR/lib/"*.so.*; do
+        if [ -L "$library" ]; then
+            continue
+        fi
+        soname=$(readelf -d "$library" | awk '/\(SONAME\)/ { gsub(/[][]/, "", $5); print $5 }')
+        cp -p "$library" "$OUTPUT_DIR/$soname"
+    done
+
+    for library in "$OUTPUT_DIR/"*.so.*; do
+        if ! readelf -d "$library" | grep -qF '[$ORIGIN]'; then
+            echo "ERROR: $(basename "$library") has no \$ORIGIN rpath, so it won't find the other FFmpeg libraries" >&2
+            exit 1
+        fi
+
+        # Every dependency must be linked statically: only glibc, zlib and FFmpeg's own libraries may remain.
+        foreign=$(readelf -d "$library" | awk '/\(NEEDED\)/ { gsub(/[][]/, "", $5); print $5 }' |
+            grep -vE '^(libc|libm|libpthread|libdl|librt|libz)\.so\.[0-9]+$|^ld-linux-x86-64\.so\.2$|^lib(av[a-z]+|sw[a-z]+)\.so\.[0-9]+$' || true)
+        if [ -n "$foreign" ]; then
+            echo "ERROR: $(basename "$library") needs libraries that Zeiger doesn't ship: $foreign" >&2
+            exit 1
+        fi
+    done
 fi
 
 echo ""
