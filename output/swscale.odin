@@ -23,8 +23,9 @@ package ffmpeg
 when ODIN_OS == .Windows {
     foreign import lib "lib/swscale.lib"
 } else when ODIN_OS == .Darwin {
-    @(extra_linker_flags = "-L/opt/homebrew/lib")
-    foreign import lib "system:swscale"
+    foreign import lib "macos/libswscale.9.dylib"
+} else when ODIN_OS == .Linux {
+    foreign import lib "linux/libswscale.so.9"
 }
 
 @(default_calling_convention="c")

@@ -31,8 +31,9 @@ package ffmpeg
 when ODIN_OS == .Windows {
     foreign import lib "lib/avutil.lib"
 } else when ODIN_OS == .Darwin {
-    @(extra_linker_flags = "-L/opt/homebrew/lib")
-    foreign import lib "system:avutil"
+    foreign import lib "macos/libavutil.60.dylib"
+} else when ODIN_OS == .Linux {
+    foreign import lib "linux/libavutil.so.60"
 }
 
 /**

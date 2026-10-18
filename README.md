@@ -110,7 +110,9 @@ Then, from **PowerShell**:
 
 Builds the bindgen if needed, runs it over the headers listed in `bindgen-config/bindgen.sjson`,
 rewrites each `.odin` file's `foreign import` to the right library, and copies `hand-written/` into
-the output.
+the output. The `foreign import` gets one branch per platform: `lib/<name>.lib` on Windows,
+`macos/lib<name>.<major>.dylib` on macOS and `linux/lib<name>.so.<major>` on Linux, the folders where
+the products extract their FFmpeg zip. The major versions are read from the installed headers.
 
 To add or remove a header, edit `bindgen-config/bindgen.sjson`. If it comes from a new FFmpeg
 library, also update the `$headerToLib` mapping in `generate_bindings.ps1`.

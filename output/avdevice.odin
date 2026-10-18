@@ -22,8 +22,9 @@ import "core:c"
 when ODIN_OS == .Windows {
     foreign import lib "lib/avdevice.lib"
 } else when ODIN_OS == .Darwin {
-    @(extra_linker_flags = "-L/opt/homebrew/lib")
-    foreign import lib "system:avdevice"
+    foreign import lib "macos/libavdevice.62.dylib"
+} else when ODIN_OS == .Linux {
+    foreign import lib "linux/libavdevice.so.62"
 }
 
 @(default_calling_convention="c")

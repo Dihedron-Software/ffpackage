@@ -89,12 +89,29 @@ $headerToLib = @{
 
 $placeholderPattern = 'foreign import lib "__PLACEHOLDER__\.lib"\r?\n_ :: lib'
 
+# The macOS and Linux libraries are named after their major version (libavcodec.62.dylib, libavcodec.so.62), the names
+# the products ship them under, so read it from the headers this build installed.
+$libMajor = @{}
+foreach ($libName in ($headerToLib.Values | Sort-Object -Unique)) {
+    $define = "LIB$($libName.ToUpper())_VERSION_MAJOR"
+    foreach ($header in @("$headersDir\lib$libName\version_major.h", "$headersDir\lib$libName\version.h")) {
+        if ((Test-Path $header) -and ((Get-Content $header -Raw) -match "#define\s+$define\s+(\d+)")) {
+            $libMajor[$libName] = $Matches[1]
+            break
+        }
+    }
+    if (-not $libMajor.ContainsKey($libName)) { Write-Error "Could not find $define in the lib$libName headers"; exit 1 }
+}
+
 foreach ($odinFile in Get-ChildItem "$outputDir\*.odin" -ErrorAction SilentlyContinue) {
     $stem = $odinFile.BaseName
     if (-not $headerToLib.ContainsKey($stem)) { continue }
     $libName = $headerToLib[$stem]
+    $major = $libMajor[$libName]
 
-    $replacement = "when ODIN_OS == .Windows {`r`n    foreign import lib `"lib/$libName.lib`"`r`n} else when ODIN_OS == .Darwin {`r`n    @(extra_linker_flags = `"-L/opt/homebrew/lib`")`r`n    foreign import lib `"system:$libName`"`r`n}"
+    # Windows: the import library next to the bindings. macOS and Linux: the shared library in macos/ or linux/, where
+    # the product's build extracts its FFmpeg zip, named after its install name or soname.
+    $replacement = "when ODIN_OS == .Windows {`r`n    foreign import lib `"lib/$libName.lib`"`r`n} else when ODIN_OS == .Darwin {`r`n    foreign import lib `"macos/lib$libName.$major.dylib`"`r`n} else when ODIN_OS == .Linux {`r`n    foreign import lib `"linux/lib$libName.so.$major`"`r`n}"
 
     $content = Get-Content $odinFile.FullName -Raw
     $newContent = $content -replace $placeholderPattern, $replacement

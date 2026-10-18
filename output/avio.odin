@@ -24,8 +24,9 @@ import "core:c"
 when ODIN_OS == .Windows {
     foreign import lib "lib/avformat.lib"
 } else when ODIN_OS == .Darwin {
-    @(extra_linker_flags = "-L/opt/homebrew/lib")
-    foreign import lib "system:avformat"
+    foreign import lib "macos/libavformat.62.dylib"
+} else when ODIN_OS == .Linux {
+    foreign import lib "linux/libavformat.so.62"
 }
 
 /**

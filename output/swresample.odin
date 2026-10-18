@@ -24,8 +24,9 @@ import "core:c"
 when ODIN_OS == .Windows {
     foreign import lib "lib/swresample.lib"
 } else when ODIN_OS == .Darwin {
-    @(extra_linker_flags = "-L/opt/homebrew/lib")
-    foreign import lib "system:swresample"
+    foreign import lib "macos/libswresample.6.dylib"
+} else when ODIN_OS == .Linux {
+    foreign import lib "linux/libswresample.so.6"
 }
 
 /**
