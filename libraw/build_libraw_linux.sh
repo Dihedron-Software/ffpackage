@@ -31,6 +31,13 @@ case "$MODE" in
     *) echo "Unknown mode '$MODE' (release, debug, clean)" >&2; exit 1 ;;
 esac
 
+# Zeiger commits this archive, so it comes from MonoRepo's Linux build environment and runs on glibc 2.28:
+#   (in MonoRepo) ./linux_env.sh ../ffpackage/libraw/build_libraw_linux.sh
+if [ -z "${DIHEDRON_LINUX_ENV:-}" ]; then
+    echo "ERROR: run this in MonoRepo's Linux build environment: ./linux_env.sh ../ffpackage/libraw/build_libraw_linux.sh" >&2
+    exit 1
+fi
+
 for tool in clang clang++ cmake ar ranlib; do
     if ! command -v "$tool" >/dev/null 2>&1; then
         echo "ERROR: $tool was not found (Debian/Ubuntu: sudo apt install clang cmake binutils)" >&2
@@ -50,7 +57,8 @@ done
 OBJECT_DIR="$BUILD_DIR/object-$MODE"
 ZLIB_OBJECT_DIR="$BUILD_DIR/zlib-object-$MODE"
 JPEG_OBJECT_DIR="$BUILD_DIR/jpeg-object-$MODE"
-rm -rf "$OBJECT_DIR" "$ZLIB_OBJECT_DIR" "$JPEG_OBJECT_DIR"
+# from scratch, the libjpeg CMake build too: a cache from another machine or environment keeps its compiler and make paths
+rm -rf "$OBJECT_DIR" "$ZLIB_OBJECT_DIR" "$JPEG_OBJECT_DIR" "$JPEG_BUILD"
 mkdir -p "$OBJECT_DIR" "$ZLIB_OBJECT_DIR" "$JPEG_OBJECT_DIR" "$OUTPUT_DIR/linux"
 
 JOBS=$(nproc 2>/dev/null || echo 4)
