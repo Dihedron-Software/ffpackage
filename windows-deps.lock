@@ -2,7 +2,7 @@
 # Pacman cannot pin versions, so build_ffmpeg.sh verifies against this file and reports drift.
 # Regenerate after an intentional dependency bump with: ./build_ffmpeg.sh --relock
 #
-# ffmpeg submodule commit: 15504610b0dc12c56e5e9f94ff06c873382368f5 (2026-02-10)
+# ffmpeg submodule commit: 1041abdc962f4cc4f394aa8de9dc5236c0c3b9e7 (2026-09-20)
 
 mingw-w64-clang-x86_64-amf-headers 1.4.36.0-1
 mingw-w64-clang-x86_64-aom 3.13.1-1

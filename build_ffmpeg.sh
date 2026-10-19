@@ -172,6 +172,7 @@ if [ ! -f "config.mak" ]; then
         --pkg-config-flags=--static \
         --prefix="$INSTALL_DIR" \
         --cc=clang \
+        --cxx=clang++ \
         --enable-shared \
         --disable-static \
         --disable-programs \
@@ -216,6 +217,7 @@ if [ ! -f "config.mak" ]; then
         --disable-openssl \
         --disable-network \
         --disable-encoder=prores,prores_aw,prores_ks,eac3,truehd,mlp,dca \
+        --disable-filter=amf_capture \
         \
         --extra-cflags="$OPTIMIZATION_FLAGS" \
         --extra-ldflags="$LIBRARY_FLAGS -static -static-libgcc -static-libstdc++" \
