@@ -34,7 +34,7 @@ fi
 
 # The formats Zeiger opens and saves decide these lists. Anything else stays out,
 # in particular every audio codec, H.264, and all hardware video APIs.
-DECODERS=(apng bmp dds exr gif hdr hevc jpeg2000 jpegls libdav1d mjpeg pam pbm pcx pfm pgm phm png ppm
+DECODERS=(apng bmp dds gif hdr hevc jpeg2000 jpegls libdav1d mjpeg pam pbm pcx pfm pgm phm png ppm
           psd qoi sgi sunrast targa tiff wbmp webp xbm xpm xwd)
 ENCODERS=(bmp mjpeg png tiff)
 DEMUXERS=(apng gif image2 mov
